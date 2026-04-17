@@ -1,6 +1,7 @@
 ---
 name: d6n
 description: Install and configure the D6N MCP tools for data procurement. Use when the user wants to connect their AI agent to the D6N network.
+argument-hint: [replace-keys]
 allowed-tools: Bash, AskUserQuestion
 ---
 
@@ -9,6 +10,8 @@ allowed-tools: Bash, AskUserQuestion
 Connect your AI agent to the [D6N](https://d6n.ai) data procurement network. D6N exposes three tools — `search`, `procure`, and `orders` — over the Model Context Protocol.
 
 ## Workflow
+
+If `$ARGUMENTS` is `replace-keys`, skip to the **Replace Keys** section below.
 
 ### Step 1: Ask for keys
 
@@ -45,7 +48,7 @@ Run the following command with the user's keys, adding `-s user` if they chose g
 
 ```bash
 claude mcp add --transport http d6n https://d6n.ai/mcp \
-  -H "Authorization: Bearer <DISTRIBUTION_KEY>" \
+  -H "X-Distribution-Key: <DISTRIBUTION_KEY>" \
   -H "X-Api-Key: <API_KEY>"
 ```
 
@@ -53,7 +56,7 @@ claude mcp add --transport http d6n https://d6n.ai/mcp \
 
 ```bash
 claude mcp add --transport http d6n https://d6n.ai/mcp -s user \
-  -H "Authorization: Bearer <DISTRIBUTION_KEY>" \
+  -H "X-Distribution-Key: <DISTRIBUTION_KEY>" \
   -H "X-Api-Key: <API_KEY>"
 ```
 
@@ -84,7 +87,7 @@ After successful install, tell the user where their config lives and how to cycl
 > ```
 > claude mcp remove d6n
 > claude mcp add --transport http d6n https://d6n.ai/mcp \
->   -H "Authorization: Bearer <NEW_DISTRIBUTION_KEY>" \
+>   -H "X-Distribution-Key: <NEW_DISTRIBUTION_KEY>" \
 >   -H "X-Api-Key: <NEW_API_KEY>"
 > ```
 
@@ -95,7 +98,7 @@ After successful install, tell the user where their config lives and how to cycl
 > ```
 > claude mcp remove d6n -s user
 > claude mcp add --transport http d6n https://d6n.ai/mcp -s user \
->   -H "Authorization: Bearer <NEW_DISTRIBUTION_KEY>" \
+>   -H "X-Distribution-Key: <NEW_DISTRIBUTION_KEY>" \
 >   -H "X-Api-Key: <NEW_API_KEY>"
 > ```
 
@@ -121,6 +124,52 @@ Manage data procurement orders.
 | `read` | Get a single order | `order_id` (str) |
 | `list` | List your orders | Optional: `limit` (int, default 20, max 50) |
 | `delete` | Close an order | `order_id` (str) |
+
+## Replace Keys
+
+If `$ARGUMENTS` is `replace-keys`, run this flow instead of the install workflow above.
+
+### Step 1: Read current config
+
+```bash
+claude mcp get d6n 2>/dev/null
+```
+
+If `d6n` is not configured, tell the user to run `/d6n` first to install.
+
+Note the current scope (local or user) and URL from the output.
+
+### Step 2: Ask for new keys
+
+Tell the user:
+
+> Paste the key(s) you want to replace. You can replace one or both.
+>
+> Provision new keys at [d6n.ai](https://d6n.ai) (avatar top-right > API Keys).
+
+- **API Key** starts with `api_ke`
+- **Distribution Key** starts with `distr_ke`
+
+For any key the user does **not** provide, keep the existing value from the current config.
+
+### Step 3: Re-add with updated keys
+
+Remove and re-add, preserving the scope and URL from step 1:
+
+```bash
+claude mcp remove d6n 2>/dev/null || true
+claude mcp add --transport http d6n <URL> \
+  -H "X-Distribution-Key: <DISTRIBUTION_KEY>" \
+  -H "X-Api-Key: <API_KEY>"
+```
+
+Add `-s user` if the existing config was user-scoped.
+
+### Step 4: Verify
+
+```bash
+claude mcp list 2>/dev/null | grep d6n
+```
 
 ## Uninstall
 
