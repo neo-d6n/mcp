@@ -26,10 +26,12 @@ Tell the user they need two keys from d6n.ai, then ask them to paste the keys in
 >
 > Please paste both keys here (you can paste them together in one message).
 
-Wait for the user to provide both keys before proceeding. The user may paste both keys in a single message. Identify them by prefix:
+Wait for the user to provide at least one key. The user may paste both keys in a single message. Identify them by prefix:
 
 - **API Key** starts with `api_ke`
 - **Distribution Key** starts with `distr_ke`
+
+If the user only provides one key, proceed with just that key. Only include headers for keys the user has provided.
 
 ### Step 2: Ask scope
 
@@ -60,7 +62,7 @@ claude mcp add --transport http d6n https://d6n.ai/mcp -s user \
   -H "X-Api-Key: <API_KEY>"
 ```
 
-Both headers are sent with every tool call.
+All provided keys are sent with every tool call.
 
 ### Step 4: Verify
 
