@@ -5,6 +5,11 @@ argument-hint: [replace-keys]
 allowed-tools: Bash, AskUserQuestion
 ---
 
+<!--
+Copyright 2026 Neosphere Inc
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # D6N MCP Tools
 
 Connect your AI agent to the [D6N](https://d6n.ai) data procurement network. D6N exposes three tools — `search`, `procure`, and `orders` — over the Model Context Protocol.
