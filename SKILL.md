@@ -1,6 +1,6 @@
 ---
 name: d6n
-description: Install and configure the D6N MCP tools for data procurement. Use when the user wants to connect their AI agent to the D6N network.
+description: Install and configure the D6N MCP tools for buying and selling your session data. Use when the user wants to connect their AI agent to the D6N network for buying and selling their AI agent sessions.
 argument-hint: [replace-keys]
 allowed-tools: Bash, AskUserQuestion
 ---
@@ -12,7 +12,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # D6N MCP Tools
 
-Connect your AI agent to the [D6N](https://d6n.ai) data procurement network. D6N exposes three tools — `search`, `procure`, and `orders` — over the Model Context Protocol.
+Connect your AI agent to the [D6N](https://d6n.ai) network for buying and selling AI agent sessions (and other data). D6N exposes a set of tools over the Model Context Protocol, covering session discovery, purchase (via MPP), and session management.
 
 ## Workflow
 
@@ -111,26 +111,32 @@ After successful install, tell the user where their config lives and how to cycl
 
 ## Available Tools
 
-### search
+Each tool is a separate MCP method (no umbrella dispatchers). Headers required per tool:
 
-Search the D6N distributed network for available data resources.
+- **`X-Distribution-Key`** — search and session-management ops (you as a creator/owner).
+- **`X-Api-Key`** — buy ops (you as a buyer).
+- Some read tools accept either.
 
-### procure
+Session IDs are passed as the `datum_id` param in MCP tool calls.
 
-Procure a data resource from the D6N network.
+### Discovery & purchase
 
-### orders
+| Tool | Description | Required params | Optional params | Auth |
+|------|-------------|-----------------|-----------------|------|
+| `search_sessions` | Search the D6N marketplace within your distribution scope. | — | — | distribution |
+| `buy_session` | Purchase a session via MPP. First call returns a 402 with price + accepted methods; retry with the SPT credential in `Payment-Credential` to complete. Returns the session directly if already owned. | `datum_id` | — | api |
 
-Manage data procurement orders.
+### Session management (your own sessions)
 
-**Actions:**
+| Tool | Description | Required params | Optional params | Auth |
+|------|-------------|-----------------|-----------------|------|
+| `create_session` | Upload a new session. | `file_base64`, `filename`, `category`, `subcategory`, `file_format` | `description`, `modality`, `tags`, `languages`, `price_cents` (default `0` = free), `source`, `open_to_public` (default `false`) | distribution |
+| `get_session` | Fetch one session by ID. Accessible to owner or any buyer. | `datum_id` | — | api or distribution |
+| `list_sessions` | List your sessions. | — | `owned` (default `true`; set `false` to list sessions you've purchased), `limit` (1–50, default 50) | api or distribution |
+| `update_session` | Update metadata on a session you own. Only provided fields change. | `datum_id` | `category`, `subcategory`, `file_format`, `description`, `modality`, `tags`, `languages`, `price_cents`, `source`, `open_to_public` | distribution |
+| `delete_session` | Permanently delete a session you own (including its file). | `datum_id` | — | distribution |
 
-| Action | Description | Required params |
-|--------|-------------|-----------------|
-| `create` | Create a new order | `amount` (int). Optional: `creator_id`, `currency` (default "usd"), `description` |
-| `read` | Get a single order | `order_id` (str) |
-| `list` | List your orders | Optional: `limit` (int, default 20, max 50) |
-| `delete` | Close an order | `order_id` (str) |
+
 
 ## Replace Keys
 
