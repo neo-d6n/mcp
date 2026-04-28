@@ -1,0 +1,25 @@
+# OS/editor artifacts
+.DS_Store
+*.swp
+*.swo
+
+
+# Local Claude/MCP config can contain credentials.
+.claude.json
+.mcp.json
+.env
+.env.*
+
+# Node/npm artifacts from npx or local packaging checks.
+node_modules/
+.npm/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local caches and scratch output.
+.cache/
+.local/
+*.tmp
+d6n-test-skill

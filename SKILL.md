@@ -26,15 +26,15 @@ Tell the user they need two keys from d6n.ai, then ask them to paste the keys in
 >
 > 1. Go to [d6n.ai](https://d6n.ai) and sign in
 > 2. Click your avatar (top-right circle) to open your profile
-> 3. Select **API Keys** from the left sidebar
-> 4. Copy your **Distribution Key** and **API Key**
+> 3. Select **Keys** from the left sidebar
+> 4. Copy your **Seller Key** and **Buyer Key**
 >
 > Please paste both keys here (you can paste them together in one message).
 
 Wait for the user to provide at least one key. The user may paste both keys in a single message. Identify them by prefix:
 
-- **API Key** starts with `api_ke`
-- **Distribution Key** starts with `distr_ke`
+- **Buyer Key** starts with `buy_ke`
+- **Seller Key** starts with `sell_ke`
 
 If the user only provides one key, proceed with just that key. Only include headers for keys the user has provided.
 
@@ -55,16 +55,16 @@ Run the following command with the user's keys, adding `-s user` if they chose g
 
 ```bash
 claude mcp add --transport http d6n https://d6n.ai/mcp \
-  -H "X-Distribution-Key: <DISTRIBUTION_KEY>" \
-  -H "X-Api-Key: <API_KEY>"
+  -H "X-Seller-Key: <SELLER_KEY>" \
+  -H "X-Buyer-Key: <BUYER_KEY>"
 ```
 
 **Global:**
 
 ```bash
 claude mcp add --transport http d6n https://d6n.ai/mcp -s user \
-  -H "X-Distribution-Key: <DISTRIBUTION_KEY>" \
-  -H "X-Api-Key: <API_KEY>"
+  -H "X-Seller-Key: <SELLER_KEY>" \
+  -H "X-Buyer-Key: <BUYER_KEY>"
 ```
 
 All provided keys are sent with every tool call.
@@ -94,8 +94,8 @@ After successful install, tell the user where their config lives and how to cycl
 > ```
 > claude mcp remove d6n
 > claude mcp add --transport http d6n https://d6n.ai/mcp \
->   -H "X-Distribution-Key: <NEW_DISTRIBUTION_KEY>" \
->   -H "X-Api-Key: <NEW_API_KEY>"
+>   -H "X-Seller-Key: <NEW_SELLER_KEY>" \
+>   -H "X-Buyer-Key: <NEW_BUYER_KEY>"
 > ```
 
 **If global:**
@@ -105,16 +105,16 @@ After successful install, tell the user where their config lives and how to cycl
 > ```
 > claude mcp remove d6n -s user
 > claude mcp add --transport http d6n https://d6n.ai/mcp -s user \
->   -H "X-Distribution-Key: <NEW_DISTRIBUTION_KEY>" \
->   -H "X-Api-Key: <NEW_API_KEY>"
+>   -H "X-Seller-Key: <NEW_SELLER_KEY>" \
+>   -H "X-Buyer-Key: <NEW_BUYER_KEY>"
 > ```
 
 ## Available Tools
 
 Each tool is a separate MCP method (no umbrella dispatchers). Headers required per tool:
 
-- **`X-Distribution-Key`** — search and session-management ops (you as a creator/owner).
-- **`X-Api-Key`** — buy ops (you as a buyer).
+- **`X-Seller-Key`** — search and session-management ops (you as a seller/owner).
+- **`X-Buyer-Key`** — buy ops (you as a buyer).
 - Some read tools accept either.
 
 Session IDs are passed as the `datum_id` param in MCP tool calls.
@@ -123,18 +123,18 @@ Session IDs are passed as the `datum_id` param in MCP tool calls.
 
 | Tool | Description | Required params | Optional params | Auth |
 |------|-------------|-----------------|-----------------|------|
-| `search_sessions` | Search the D6N marketplace within your distribution scope. | — | — | distribution |
-| `buy_session` | Purchase a session via MPP. First call returns a 402 with price + accepted methods; retry with the SPT credential in `Payment-Credential` to complete. Returns the session directly if already owned. | `datum_id` | — | api |
+| `search_sessions` | Search the D6N marketplace within your seller scope. | — | — | seller |
+| `buy_session` | Purchase a session via MPP. First call returns a 402 with price + accepted methods; retry with the SPT credential in `Payment-Credential` to complete. Returns the session directly if already owned. | `datum_id` | — | buyer |
 
 ### Session management (your own sessions)
 
 | Tool | Description | Required params | Optional params | Auth |
 |------|-------------|-----------------|-----------------|------|
-| `create_session` | Upload a new session. | `file_base64`, `filename`, `category`, `subcategory`, `file_format` | `description`, `modality`, `tags`, `languages`, `price_cents` (default `0` = free), `source`, `open_to_public` (default `false`) | distribution |
-| `get_session` | Fetch one session by ID. Accessible to owner or any buyer. | `datum_id` | — | api or distribution |
-| `list_sessions` | List your sessions. | — | `owned` (default `true`; set `false` to list sessions you've purchased), `limit` (1–50, default 50) | api or distribution |
-| `update_session` | Update metadata on a session you own. Only provided fields change. | `datum_id` | `category`, `subcategory`, `file_format`, `description`, `modality`, `tags`, `languages`, `price_cents`, `source`, `open_to_public` | distribution |
-| `delete_session` | Permanently delete a session you own (including its file). | `datum_id` | — | distribution |
+| `create_session` | Upload a new session. | `file_base64`, `filename`, `category`, `subcategory`, `file_format` | `description`, `modality`, `tags`, `languages`, `price_cents` (default `0` = free), `source`, `open_to_public` (default `false`) | seller |
+| `get_session` | Fetch one session by ID. Accessible to owner or any buyer. | `datum_id` | — | buyer or seller |
+| `list_sessions` | List your sessions. | — | `owned` (default `true`; set `false` to list sessions you've purchased), `limit` (1–50, default 50) | buyer or seller |
+| `update_session` | Update metadata on a session you own. Only provided fields change. | `datum_id` | `category`, `subcategory`, `file_format`, `description`, `modality`, `tags`, `languages`, `price_cents`, `source`, `open_to_public` | seller |
+| `delete_session` | Permanently delete a session you own (including its file). | `datum_id` | — | seller |
 
 
 
@@ -158,10 +158,10 @@ Tell the user:
 
 > Paste the key(s) you want to replace. You can replace one or both.
 >
-> Provision new keys at [d6n.ai](https://d6n.ai) (avatar top-right > API Keys).
+> Provision new keys at [d6n.ai](https://d6n.ai) (avatar top-right > Keys).
 
-- **API Key** starts with `api_ke`
-- **Distribution Key** starts with `distr_ke`
+- **Buyer Key** starts with `buy_ke`
+- **Seller Key** starts with `sell_ke`
 
 For any key the user does **not** provide, keep the existing value from the current config.
 
@@ -172,8 +172,8 @@ Remove and re-add, preserving the scope and URL from step 1:
 ```bash
 claude mcp remove d6n 2>/dev/null || true
 claude mcp add --transport http d6n <URL> \
-  -H "X-Distribution-Key: <DISTRIBUTION_KEY>" \
-  -H "X-Api-Key: <API_KEY>"
+  -H "X-Seller-Key: <SELLER_KEY>" \
+  -H "X-Buyer-Key: <BUYER_KEY>"
 ```
 
 Add `-s user` if the existing config was user-scoped.
