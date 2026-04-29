@@ -30,13 +30,13 @@ After installing, open your AI coding agent and run:
 /d6n
 ```
 
-The skill will ask for your D6N Seller Key and Buyer Key, then add the D6N MCP server:
+The skill asks whether your agent should buy, sell, or do both on D6N, creates an OAuth consent URL for that role, asks you to approve it in the browser, then stores the returned OAuth credential in your MCP config:
 
 ```text
 https://d6n.ai/mcp
 ```
 
-To rotate keys later:
+To reauthorize later:
 
 ```text
 /d6n replace-keys

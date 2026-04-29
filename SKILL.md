@@ -1,7 +1,7 @@
 ---
 name: d6n
 description: Install and configure the D6N MCP tools for buying and selling your session data. Use when the user wants to connect their AI agent to the D6N network for buying and selling their AI agent sessions.
-argument-hint: [replace-keys]
+argument-hint: [replace-keys|reauthorize]
 allowed-tools: Bash, AskUserQuestion
 ---
 
@@ -12,64 +12,106 @@ SPDX-License-Identifier: Apache-2.0
 
 # D6N MCP Tools
 
-Connect your AI agent to the [D6N](https://d6n.ai) network for buying and selling AI agent sessions (and other data). D6N exposes a set of tools over the Model Context Protocol, covering session discovery, purchase (via MPP), and session management.
+Connect your AI agent to the [D6N](https://d6n.ai) network for buying and selling AI agent sessions and other data. D6N exposes MCP tools for OAuth authorization, session discovery, purchase via MPP, and session management.
 
 ## Workflow
 
-If `$ARGUMENTS` is `replace-keys`, skip to the **Replace Keys** section below.
+If `$ARGUMENTS` is `replace-keys` or `reauthorize`, skip to **Reauthorize**.
 
-### Step 1: Ask for keys
+Do not ask the user to visit D6N and manually generate Buyer/Seller keys. Use the OAuth tools below.
 
-Tell the user they need two keys from d6n.ai, then ask them to paste the keys in the chat:
-
-> To connect to D6N, you need two keys from your d6n.ai account.
->
-> 1. Go to [d6n.ai](https://d6n.ai) and sign in
-> 2. Click your avatar (top-right circle) to open your profile
-> 3. Select **Keys** from the left sidebar
-> 4. Copy your **Seller Key** and **Buyer Key**
->
-> Please paste both keys here (you can paste them together in one message).
-
-Wait for the user to provide at least one key. The user may paste both keys in a single message. Identify them by prefix:
-
-- **Buyer Key** starts with `buy_ke`
-- **Seller Key** starts with `sell_ke`
-
-If the user only provides one key, proceed with just that key. Only include headers for keys the user has provided.
-
-### Step 2: Ask scope
+### Step 1: Choose install scope and D6N role
 
 Ask the user:
 
 > Would you like to install D6N for **this project only** (local) or **all projects** (global)?
+>
+> Do you want this AI agent to **buy** data on D6N, **sell** data on D6N, or do **both**?
 
-- **Local** (default): config is stored in the project's `.claude.json`, private to this project.
-- **Global**: config is stored in your user-level settings, available across all projects.
+- **Local** (default): config is stored in the project's `.claude.json`.
+- **Global**: config is stored in user-level settings.
 
-### Step 3: Install
+Derive OAuth scopes from the user's answer. Do not ask them for raw OAuth scope strings.
 
-Run the following command with the user's keys, adding `-s user` if they chose global:
+| User intent | OAuth `scopes` | Suggested `client_id` suffix |
+|-------------|----------------|------------------------------|
+| Buy data | `buy` | `buy` |
+| Sell data | `sell` | `sell` |
+| Buy and sell data | `buy sell` | `buy+sell` |
 
-**Local (default):**
+Pick a stable `client_id` shown on the consent page, such as `Claude Code (<project-name>) - buy+sell`. Include the selected role in the `client_id` so the approval page is clear. Reuse the exact same `client_id` and derived `scopes` for `create_oauth` and `check_oauth`.
+
+### Step 2: Add a public MCP connection
+
+Use `https://d6n.ai/mcp` unless an existing D6N MCP config already uses another URL.
+
+Local:
 
 ```bash
+claude mcp add --transport http d6n https://d6n.ai/mcp
+```
+
+Global:
+
+```bash
+claude mcp add --transport http d6n https://d6n.ai/mcp -s user
+```
+
+If `d6n` is already configured, preserve its scope and URL and continue to OAuth. If the client does not expose newly added MCP tools until reload, tell the user to reload/restart the AI client and run the D6N setup again. Do not fall back to manual key generation.
+
+### Step 3: Create OAuth request
+
+Call the D6N MCP tool:
+
+```text
+create_oauth(client_id="<CLIENT_ID>", scopes="<SCOPES>")
+```
+
+It returns:
+
+```json
+{"oauth_id": "...", "oauth_url": "https://d6n.ai/oauth?oauth_id=..."}
+```
+
+Send the `oauth_url` to the user and ask them to open it, sign in, and approve. Tell them the consent page will show that they can go back to their AI agent after approval, then redirect to their D6N profile.
+
+### Step 4: Poll for approval
+
+Poll the D6N MCP tool every few seconds:
+
+```text
+check_oauth(client_id="<SAME_CLIENT_ID>", scopes="<SAME_SCOPES>", oauth_url="<OAUTH_URL>")
+```
+
+- Pass the exact same `client_id` and `scopes` used for `create_oauth`.
+- `{"status": "pending"}` means keep waiting.
+- Rejected or expired requests return 404; create a fresh OAuth request.
+- Approved responses include `auth_key` / `obo_key` with a `cli_ke...` credential.
+- The approved result is one-shot. Once you receive the credential, immediately install it and do not call `check_oauth` again for the same request.
+
+### Step 5: Re-add MCP with the OAuth credential
+
+Let `<CLI_KEY>` be the returned `auth_key` or `obo_key`.
+
+Local:
+
+```bash
+claude mcp remove d6n 2>/dev/null || true
 claude mcp add --transport http d6n https://d6n.ai/mcp \
-  -H "X-Seller-Key: <SELLER_KEY>" \
-  -H "X-Buyer-Key: <BUYER_KEY>"
+  -H "Authorization: Bearer <CLI_KEY>"
 ```
 
-**Global:**
+Global:
 
 ```bash
+claude mcp remove d6n -s user 2>/dev/null || true
 claude mcp add --transport http d6n https://d6n.ai/mcp -s user \
-  -H "X-Seller-Key: <SELLER_KEY>" \
-  -H "X-Buyer-Key: <BUYER_KEY>"
+  -H "Authorization: Bearer <CLI_KEY>"
 ```
 
-All provided keys are sent with every tool call.
+Do not print the full credential in the final answer.
 
-### Step 4: Verify
+### Step 6: Verify
 
 ```bash
 claude mcp list 2>/dev/null | grep d6n
@@ -77,115 +119,69 @@ claude mcp list 2>/dev/null | grep d6n
 
 Expected output:
 
-```
+```text
 d6n: https://d6n.ai/mcp (HTTP) - Connected
 ```
 
-If it shows `Connected`, tell the user the install succeeded and summarize what's available (see Available Tools below).
-
-### Step 5: Inform user about key rotation
-
-After successful install, tell the user where their config lives and how to cycle keys. Tailor the message to the scope they chose:
-
-**If local:**
-
-> Your D6N MCP config is stored in this project's `.claude.json`. If you ever need to cycle your keys, run:
->
-> ```
-> claude mcp remove d6n
-> claude mcp add --transport http d6n https://d6n.ai/mcp \
->   -H "X-Seller-Key: <NEW_SELLER_KEY>" \
->   -H "X-Buyer-Key: <NEW_BUYER_KEY>"
-> ```
-
-**If global:**
-
-> Your D6N MCP config is stored in your user-level settings (`~/.claude.json`). If you ever need to cycle your keys, run:
->
-> ```
-> claude mcp remove d6n -s user
-> claude mcp add --transport http d6n https://d6n.ai/mcp -s user \
->   -H "X-Seller-Key: <NEW_SELLER_KEY>" \
->   -H "X-Buyer-Key: <NEW_BUYER_KEY>"
-> ```
+If connected, tell the user D6N is installed and summarize what is available.
 
 ## Available Tools
 
-Each tool is a separate MCP method (no umbrella dispatchers). Headers required per tool:
+Each tool is a separate MCP method. After OAuth setup, authenticated tools use the `Authorization: Bearer <cli_ke...>` OBO credential. Session IDs are passed as the `datum_id` param in MCP calls.
 
-- **`X-Seller-Key`** — search and session-management ops (you as a seller/owner).
-- **`X-Buyer-Key`** — buy ops (you as a buyer).
-- Some read tools accept either.
+### OAuth setup
 
-Session IDs are passed as the `datum_id` param in MCP tool calls.
+| Tool | Description | Required params | Optional params | Auth |
+|------|-------------|-----------------|-----------------|------|
+| `create_oauth` | Create a short-lived user consent URL. | `client_id`, `scopes` | - | none |
+| `check_oauth` | Check consent status and return a one-shot CLI-prefixed OBO credential when approved. | `client_id`, `scopes` | `oauth_url` or `oauth_id` | none |
 
 ### Discovery & purchase
 
 | Tool | Description | Required params | Optional params | Auth |
 |------|-------------|-----------------|-----------------|------|
-| `search_sessions` | Search the D6N marketplace within your seller scope. | — | — | seller |
-| `buy_session` | Purchase a session via MPP. First call returns a 402 with price + accepted methods; retry with the SPT credential in `Payment-Credential` to complete. Returns the session directly if already owned. | `datum_id` | — | buyer |
+| `search_sessions` | Search the D6N marketplace within your seller scope. | - | - | `sell` grant |
+| `buy_session` | Purchase a session via MPP. First call returns a 402 with price and accepted methods; retry with the SPT credential in `Payment-Credential` to complete. Returns the session directly if already owned. | `datum_id` | - | `buy` grant |
 
-### Session management (your own sessions)
+### Session management
 
 | Tool | Description | Required params | Optional params | Auth |
 |------|-------------|-----------------|-----------------|------|
-| `create_session` | Upload a new session. | `file_base64`, `filename`, `category`, `subcategory`, `file_format` | `description`, `modality`, `tags`, `languages`, `price_cents` (default `0` = free), `source`, `open_to_public` (default `false`) | seller |
-| `get_session` | Fetch one session by ID. Accessible to owner or any buyer. | `datum_id` | — | buyer or seller |
-| `list_sessions` | List your sessions. | — | `owned` (default `true`; set `false` to list sessions you've purchased), `limit` (1–50, default 50) | buyer or seller |
-| `update_session` | Update metadata on a session you own. Only provided fields change. | `datum_id` | `category`, `subcategory`, `file_format`, `description`, `modality`, `tags`, `languages`, `price_cents`, `source`, `open_to_public` | seller |
-| `delete_session` | Permanently delete a session you own (including its file). | `datum_id` | — | seller |
+| `create_session` | Upload a new session. | `file_base64`, `filename`, `category`, `subcategory`, `file_format` | `description`, `modality`, `tags`, `languages`, `price_cents` (default `0` = free), `source`, `open_to_public` (default `false`) | `sell` grant |
+| `get_session` | Fetch one session by ID. Accessible to owner or any buyer. | `datum_id` | - | `buy` or `sell` grant |
+| `list_sessions` | List your sessions. | - | `owned` (default `true`; set `false` to list purchased sessions), `limit` (1-50, default 50) | `buy` or `sell` grant |
+| `update_session` | Update metadata on a session you own. Only provided fields change. | `datum_id` | `category`, `subcategory`, `file_format`, `description`, `modality`, `tags`, `languages`, `price_cents`, `source`, `open_to_public` | `sell` grant |
+| `delete_session` | Permanently delete a session you own, including its file. | `datum_id` | - | `sell` grant |
 
+## Reauthorize
 
+Use this flow when `$ARGUMENTS` is `replace-keys` or `reauthorize`.
 
-## Replace Keys
-
-If `$ARGUMENTS` is `replace-keys`, run this flow instead of the install workflow above.
-
-### Step 1: Read current config
+1. Read the current config:
 
 ```bash
 claude mcp get d6n 2>/dev/null
 ```
 
-If `d6n` is not configured, tell the user to run `/d6n` first to install.
+If `d6n` is not configured, run the normal workflow.
 
-Note the current scope (local or user) and URL from the output.
+2. Preserve the current install scope and MCP URL.
+3. Run the OAuth workflow from **Step 1**, asking whether the user wants this agent to buy, sell, or do both on D6N.
+4. Remove and re-add `d6n` with the new `Authorization: Bearer <CLI_KEY>` header.
+5. Verify with `claude mcp list`.
 
-### Step 2: Ask for new keys
-
-Tell the user:
-
-> Paste the key(s) you want to replace. You can replace one or both.
->
-> Provision new keys at [d6n.ai](https://d6n.ai) (avatar top-right > Keys).
-
-- **Buyer Key** starts with `buy_ke`
-- **Seller Key** starts with `sell_ke`
-
-For any key the user does **not** provide, keep the existing value from the current config.
-
-### Step 3: Re-add with updated keys
-
-Remove and re-add, preserving the scope and URL from step 1:
-
-```bash
-claude mcp remove d6n 2>/dev/null || true
-claude mcp add --transport http d6n <URL> \
-  -H "X-Seller-Key: <SELLER_KEY>" \
-  -H "X-Buyer-Key: <BUYER_KEY>"
-```
-
-Add `-s user` if the existing config was user-scoped.
-
-### Step 4: Verify
-
-```bash
-claude mcp list 2>/dev/null | grep d6n
-```
+Do not ask the user to paste Buyer/Seller keys during reauthorization.
 
 ## Uninstall
 
+Local:
+
 ```bash
 claude mcp remove d6n
+```
+
+Global:
+
+```bash
+claude mcp remove d6n -s user
 ```
