@@ -12,13 +12,13 @@ SPDX-License-Identifier: Apache-2.0
 
 # D6N MCP Tools
 
-Connect your AI agent to the [D6N](https://d6n.ai) network for buying and selling AI agent sessions and other data. D6N exposes MCP tools for OAuth authorization, session discovery, purchase via MPP, and session management.
+Connect your AI agent to the [D6N](https://d6n.ai) network for buying and selling AI agent sessions and other data. D6N exposes MCP tools for session discovery, purchase via MPP, and session management. OAuth authorization is performed via plain HTTP (no MCP tools needed yet) so the user only restarts their AI client once.
 
 ## Workflow
 
 If `$ARGUMENTS` is `replace-keys` or `reauthorize`, skip to **Reauthorize**.
 
-Do not ask the user to visit D6N and manually generate Buyer/Seller keys. Use the OAuth tools below.
+Do not ask the user to visit D6N and manually generate Buyer/Seller keys. Use the OAuth HTTP endpoints below.
 
 ### Step 1: Choose install scope and D6N role
 
@@ -39,32 +39,16 @@ Derive OAuth scopes from the user's answer. Do not ask them for raw OAuth scope 
 | Sell data | `sell` | `sell` |
 | Buy and sell data | `buy sell` | `buy+sell` |
 
-Pick a stable `client_id` shown on the consent page, such as `Claude Code (<project-name>) - buy+sell`. Include the selected role in the `client_id` so the approval page is clear. Reuse the exact same `client_id` and derived `scopes` for `create_oauth` and `check_oauth`.
+Pick a stable `client_id` shown on the consent page, such as `Claude Code (<project-name>) - buy+sell`. Include the selected role in the `client_id` so the approval page is clear. Reuse the exact same `client_id` and `scopes` for `/oauth/create` and `/oauth/check`.
 
-### Step 2: Add a public MCP connection
+### Step 2: Create the OAuth request
 
-Use `https://d6n.ai/mcp` unless an existing D6N MCP config already uses another URL.
-
-Local:
+POST to the D6N HTTP API:
 
 ```bash
-claude mcp add --transport http d6n https://d6n.ai/mcp
-```
-
-Global:
-
-```bash
-claude mcp add --transport http d6n https://d6n.ai/mcp -s user
-```
-
-If `d6n` is already configured, preserve its scope and URL and continue to OAuth. If the client does not expose newly added MCP tools until reload, tell the user to reload/restart the AI client and run the D6N setup again. Do not fall back to manual key generation.
-
-### Step 3: Create OAuth request
-
-Call the D6N MCP tool:
-
-```text
-create_oauth(client_id="<CLIENT_ID>", scopes="<SCOPES>")
+curl -sS -X POST https://d6n.ai/oauth/create \
+  -H 'Content-Type: application/json' \
+  -d '{"client_id":"<CLIENT_ID>","scopes":"<SCOPES>"}'
 ```
 
 It returns:
@@ -73,25 +57,29 @@ It returns:
 {"oauth_id": "...", "oauth_url": "https://d6n.ai/oauth?oauth_id=..."}
 ```
 
-Send the `oauth_url` to the user and ask them to open it, sign in, and approve. Tell them the consent page will show that they can go back to their AI agent after approval, then redirect to their D6N profile.
+Send the `oauth_url` to the user and ask them to open it, sign in, and approve. Tell them the consent page will let them return to their AI agent after approval, then redirect to their D6N profile.
 
-### Step 4: Poll for approval
+### Step 3: Wait for approval, then collect the credential
 
-Poll the D6N MCP tool every few seconds:
+Block on the user. Tell them: *"Open the link, approve, and reply 'done' here when finished."*
 
-```text
-check_oauth(client_id="<SAME_CLIENT_ID>", scopes="<SAME_SCOPES>", oauth_url="<OAUTH_URL>")
+When the user replies, fetch the result:
+
+```bash
+curl -sS 'https://d6n.ai/oauth/check?client_id=<CLIENT_ID>&scopes=<SCOPES>&oauth_id=<OAUTH_ID>'
 ```
 
-- Pass the exact same `client_id` and `scopes` used for `create_oauth`.
-- `{"status": "pending"}` means keep waiting.
-- Rejected or expired requests return 404; create a fresh OAuth request.
-- Approved responses include `auth_key` / `obo_key` with a `cli_ke...` credential.
-- The approved result is one-shot. Once you receive the credential, immediately install it and do not call `check_oauth` again for the same request.
+URL-encode `client_id` and `scopes` if they contain spaces.
 
-### Step 5: Re-add MCP with the OAuth credential
+- `{"status": "pending"}` — the user hasn't approved yet. Tell them and wait again.
+- 404 — request was rejected or expired. Start over from Step 2.
+- Approved responses include `auth_key` / `obo_key` with a `cli_ke...` credential. **The result is one-shot — install it immediately and do not call `/oauth/check` again for the same request.**
+
+### Step 4: Add the MCP server with the OAuth credential
 
 Let `<CLI_KEY>` be the returned `auth_key` or `obo_key`.
+
+If `d6n` is already configured (no auth), remove it first.
 
 Local:
 
@@ -111,7 +99,11 @@ claude mcp add --transport http d6n https://d6n.ai/mcp -s user \
 
 Do not print the full credential in the final answer.
 
-### Step 6: Verify
+### Step 5: Tell the user to restart, then verify
+
+The MCP tools (`buy_session`, `search_sessions`, etc.) won't be exposed until the AI client reloads its MCP servers. Tell the user to restart their AI client once.
+
+After restart they can verify:
 
 ```bash
 claude mcp list 2>/dev/null | grep d6n
@@ -123,27 +115,27 @@ Expected output:
 d6n: https://d6n.ai/mcp (HTTP) - Connected
 ```
 
-If connected, tell the user D6N is installed and summarize what is available.
+Summarize the available marketplace tools.
 
 ## Available Tools
 
-Each tool is a separate MCP method. After OAuth setup, authenticated tools use the `Authorization: Bearer <cli_ke...>` OBO credential. Session IDs are passed as the `datum_id` param in MCP calls.
+After OAuth setup, MCP tools use the `Authorization: Bearer <cli_ke...>` OBO credential. Session IDs are passed as the `datum_id` param.
 
-### OAuth setup
+### OAuth setup (HTTP, not MCP)
 
-| Tool | Description | Required params | Optional params | Auth |
-|------|-------------|-----------------|-----------------|------|
-| `create_oauth` | Create a short-lived user consent URL. | `client_id`, `scopes` | - | none |
-| `check_oauth` | Check consent status and return a one-shot CLI-prefixed OBO credential when approved. | `client_id`, `scopes` | `oauth_url` or `oauth_id` | none |
+| Endpoint | Description | Required params | Optional params | Auth |
+|----------|-------------|-----------------|-----------------|------|
+| `POST /oauth/create` | Create a short-lived user consent URL. | `client_id`, `scopes` | - | none |
+| `GET /oauth/check` | Check consent status and return a one-shot CLI-prefixed OBO credential when approved. | `client_id`, `scopes` | `oauth_url` or `oauth_id` | none |
 
-### Discovery & purchase
+### Discovery & purchase (MCP)
 
 | Tool | Description | Required params | Optional params | Auth |
 |------|-------------|-----------------|-----------------|------|
 | `search_sessions` | Search the D6N marketplace within your seller scope. | - | - | `sell` grant |
 | `buy_session` | Purchase a session via MPP. First call returns a 402 with price and accepted methods; retry with the SPT credential in `Payment-Credential` to complete. Returns the session directly if already owned. | `datum_id` | - | `buy` grant |
 
-### Session management
+### Session management (MCP)
 
 | Tool | Description | Required params | Optional params | Auth |
 |------|-------------|-----------------|-----------------|------|
@@ -168,7 +160,7 @@ If `d6n` is not configured, run the normal workflow.
 2. Preserve the current install scope and MCP URL.
 3. Run the OAuth workflow from **Step 1**, asking whether the user wants this agent to buy, sell, or do both on D6N.
 4. Remove and re-add `d6n` with the new `Authorization: Bearer <CLI_KEY>` header.
-5. Verify with `claude mcp list`.
+5. Tell the user to restart their AI client, then verify with `claude mcp list`.
 
 Do not ask the user to paste Buyer/Seller keys during reauthorization.
 
