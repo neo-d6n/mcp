@@ -1,7 +1,7 @@
 ---
 name: d6n
-description: Install and configure the D6N MCP tools for buying and selling your session data. Use when the user wants to connect their AI agent to the D6N network for buying and selling their AI agent sessions.
-argument-hint: [replace-keys|reauthorize]
+description: Install or reauthorize the D6N MCP server for the active AI coding agent using the D6N OAuth consent flow.
+argument-hint: [reauthorize|replace-keys]
 allowed-tools: Bash, AskUserQuestion
 ---
 
@@ -10,170 +10,213 @@ Copyright 2026 Neosphere Inc
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# D6N MCP Tools
+# D6N MCP Install
 
-Connect your AI agent to the [D6N](https://d6n.ai) network for buying and selling AI agent sessions and other data. D6N exposes MCP tools for session discovery, purchase via MPP, and session management. OAuth authorization is performed via plain HTTP (no MCP tools needed yet) so the user only restarts their AI client once.
+Use this skill only to install or reauthorize the D6N MCP server. After install, the D6N MCP server itself exposes the working tools.
 
-## Workflow
+D6N grants access through a user-approved OAuth URL. The approved result is a `cli_ke...` OBO credential scoped to `buy`, `sell`, or both. Do not ask the user to create or paste credentials.
 
-If `$ARGUMENTS` is `replace-keys` or `reauthorize`, skip to **Reauthorize**.
+## What To Install
 
-Do not ask the user to visit D6N and manually generate Buyer/Seller keys. Use the OAuth HTTP endpoints below.
+Detect the active client before doing anything:
 
-### Step 1: Choose install scope and D6N role
+1. If any `CODEX_*` environment variable exists, configure **Codex**.
+2. Else if any `CLAUDE_*` or `CLAUDE_CODE_*` environment variable exists, configure **Claude Code**.
+3. Else if only `codex` or only `claude` exists on `PATH`, configure that client.
+4. Else ask which client to configure.
 
-Ask the user:
+Use the matching MCP endpoint:
 
-> Would you like to install D6N for **this project only** (local) or **all projects** (global)?
->
-> Do you want this AI agent to **buy** data on D6N, **sell** data on D6N, or do **both**?
+- Production: `https://d6n.ai/mcp`
+- Local dev: `http://127.0.0.1:8991/mcp`
 
-- **Local** (default): config is stored in the project's `.claude.json`.
-- **Global**: config is stored in user-level settings.
+Use the matching OAuth HTTP origin:
 
-Derive OAuth scopes from the user's answer. Do not ask them for raw OAuth scope strings.
+- Production: `https://d6n.ai`
+- Local dev: `http://127.0.0.1:8990`
 
-| User intent | OAuth `scopes` | Suggested `client_id` suffix |
-|-------------|----------------|------------------------------|
-| Buy data | `buy` | `buy` |
-| Sell data | `sell` | `sell` |
-| Buy and sell data | `buy sell` | `buy+sell` |
+Prefer production unless the current repo/session is clearly using the local D6N stack.
 
-Pick a stable `client_id` shown on the consent page, such as `Claude Code (<project-name>) - buy+sell`. Include the selected role in the `client_id` so the approval page is clear. Reuse the exact same `client_id` and `scopes` for `/oauth/create` and `/oauth/check`.
+## Install Flow
 
-### Step 2: Create the OAuth request
+If `$ARGUMENTS` is `reauthorize` or `replace-keys`, follow the same flow and replace the existing `d6n` MCP entry for the active client.
 
-POST to the D6N HTTP API:
+### 1. Ask For Scope
+
+Ask the user whether this agent should:
+
+- `buy`
+- `sell`
+- `buy sell`
+
+Do not ask for raw OAuth scopes if the user already answered in normal language.
+
+Build a stable `client_id`:
+
+- Codex: `Codex <project-name> <scope-label>`
+- Claude Code: `Claude Code <project-name> <scope-label>`
+
+D6N sanitizes this value server-side. Keep it short and readable.
+
+### 2. Create OAuth URL
 
 ```bash
-curl -sS -X POST https://d6n.ai/oauth/create \
+curl -sS -X POST "$D6N_HTTP_ORIGIN/oauth/create" \
   -H 'Content-Type: application/json' \
   -d '{"client_id":"<CLIENT_ID>","scopes":"<SCOPES>"}'
 ```
 
-It returns:
+The response has:
 
 ```json
-{"oauth_id": "...", "oauth_url": "https://d6n.ai/oauth?oauth_id=..."}
+{"oauth_id":"...","oauth_url":"..."}
 ```
 
-Send the `oauth_url` to the user and ask them to open it, sign in, and approve. Tell them the consent page will let them return to their AI agent after approval, then redirect to their D6N profile.
+Send the `oauth_url` to the user. Ask them to open it, sign in, approve, and reply `done`.
 
-### Step 3: Wait for approval, then collect the credential
+### 3. Collect Approved Credential
 
-Block on the user. Tell them: *"Open the link, approve, and reply 'done' here when finished."*
-
-When the user replies, fetch the result:
+After the user replies, call:
 
 ```bash
-curl -sS 'https://d6n.ai/oauth/check?client_id=<CLIENT_ID>&scopes=<SCOPES>&oauth_id=<OAUTH_ID>'
+curl -sS "$D6N_HTTP_ORIGIN/oauth/check?client_id=<URL_ENCODED_CLIENT_ID>&scopes=<URL_ENCODED_SCOPES>&oauth_id=<OAUTH_ID>"
 ```
 
-URL-encode `client_id` and `scopes` if they contain spaces.
+Results:
 
-- `{"status": "pending"}` — the user hasn't approved yet. Tell them and wait again.
-- 404 — request was rejected or expired. Start over from Step 2.
-- Approved responses include `auth_key` / `obo_key` with a `cli_ke...` credential. **The result is one-shot — install it immediately and do not call `/oauth/check` again for the same request.**
+- `{"status":"pending"}`: ask the user to finish approval, then check again.
+- `404`: OAuth request expired, was rejected, or was already consumed. Start over.
+- Approved result: contains `auth_key` or `obo_key`. Use that value immediately. The result is one-shot.
 
-### Step 4: Add the MCP server with the OAuth credential
+Never print the full credential.
 
-Let `<CLI_KEY>` be the returned `auth_key` or `obo_key`.
+### 4. Configure MCP
 
-If `d6n` is already configured (no auth), remove it first.
+Let `<CLI_KEY>` be the approved `cli_ke...` credential.
 
-Local:
+#### Codex
+
+Codex stores MCP config in `~/.codex/config.toml` and supports remote HTTP bearer auth through an environment variable.
+
+```bash
+CLI_KEY='<CLI_KEY>'
+mkdir -p "$HOME/.config/d6n"
+chmod 700 "$HOME/.config/d6n"
+cat > "$HOME/.config/d6n/mcp.env" <<EOF
+export D6N_MCP_BEARER='$CLI_KEY'
+EOF
+chmod 600 "$HOME/.config/d6n/mcp.env"
+
+PROFILE="$HOME/.zshrc"
+if [ -n "${BASH_VERSION:-}" ]; then PROFILE="$HOME/.bashrc"; fi
+grep -q 'D6N MCP bearer for Codex' "$PROFILE" 2>/dev/null || cat >> "$PROFILE" <<'EOF'
+
+# D6N MCP bearer for Codex
+source "$HOME/.config/d6n/mcp.env"
+EOF
+
+. "$HOME/.config/d6n/mcp.env"
+codex mcp remove d6n 2>/dev/null || true
+codex mcp add d6n --url "$D6N_MCP_URL" --bearer-token-env-var D6N_MCP_BEARER
+```
+
+#### Claude Code
+
+Ask whether to install for this project or all projects.
+
+This project:
 
 ```bash
 claude mcp remove d6n 2>/dev/null || true
-claude mcp add --transport http d6n https://d6n.ai/mcp \
-  -H "Authorization: Bearer <CLI_KEY>"
+claude mcp add --transport http --scope local \
+  --header "Authorization: Bearer <CLI_KEY>" \
+  d6n "$D6N_MCP_URL"
 ```
 
-Global:
+All projects:
 
 ```bash
-claude mcp remove d6n -s user 2>/dev/null || true
-claude mcp add --transport http d6n https://d6n.ai/mcp -s user \
-  -H "Authorization: Bearer <CLI_KEY>"
+claude mcp remove d6n --scope user 2>/dev/null || true
+claude mcp add --transport http --scope user \
+  --header "Authorization: Bearer <CLI_KEY>" \
+  d6n "$D6N_MCP_URL"
 ```
 
-Do not print the full credential in the final answer.
+Use Claude project scope only if explicitly requested, because `.mcp.json` is intended to be shareable and must not contain secrets.
 
-### Step 5: Tell the user to restart, then verify
+### 5. Verify
 
-The MCP tools (`buy_session`, `search_sessions`, etc.) won't be exposed until the AI client reloads its MCP servers. Tell the user to restart their AI client once.
+The user must restart the active AI client before new MCP tools appear.
 
-After restart they can verify:
+After restart:
 
 ```bash
-claude mcp list 2>/dev/null | grep d6n
+# Codex
+. "$HOME/.config/d6n/mcp.env" 2>/dev/null || true
+codex mcp list
+codex mcp get d6n
+
+# Claude Code
+claude mcp list
+claude mcp get d6n
 ```
 
-Expected output:
+Then ask the agent to call the D6N `whoami` MCP tool. Expected sentence:
 
 ```text
-d6n: https://d6n.ai/mcp (HTTP) - Connected
+You are <client_id> that can <scope> for user <username>.
 ```
 
-Summarize the available marketplace tools.
+## Current MCP Tools
 
-## Available Tools
+Identity:
 
-After OAuth setup, MCP tools use the `Authorization: Bearer <cli_ke...>` OBO credential. Session IDs are passed as the `datum_id` param.
+- `whoami`: confirms the configured D6N bearer token, client id, scope, and username.
 
-### OAuth setup (HTTP, not MCP)
+Open orders:
 
-| Endpoint | Description | Required params | Optional params | Auth |
-|----------|-------------|-----------------|-----------------|------|
-| `POST /oauth/create` | Create a short-lived user consent URL. | `client_id`, `scopes` | - | none |
-| `GET /oauth/check` | Check consent status and return a one-shot CLI-prefixed OBO credential when approved. | `client_id`, `scopes` | `oauth_url` or `oauth_id` | none |
+- `create_buy_order(amount_cents, description)`: create an open buy order. Requires `buy` scope.
+- `create_sell_order(amount_cents, description)`: create an open sell order. Requires `sell` scope.
+- `delete_order(order_id)`: close an order the user/agent is allowed to manage.
 
-### Discovery & purchase (MCP)
+Marketplace sessions:
 
-| Tool | Description | Required params | Optional params | Auth |
-|------|-------------|-----------------|-----------------|------|
-| `search_sessions` | Search the D6N marketplace within your seller scope. | - | - | `sell` grant |
-| `buy_session` | Purchase a session via MPP. First call returns a 402 with price and accepted methods; retry with the SPT credential in `Payment-Credential` to complete. Returns the session directly if already owned. | `datum_id` | - | `buy` grant |
+- `search_sessions`: search available sessions.
+- `buy_session(datum_id)`: buy a session through MPP/payment challenge flow.
+- `create_session(...)`: upload a sellable session. Requires `sell` scope.
+- `update_session(datum_id, ...)`: update a session you own. Requires `sell` scope.
+- `delete_session(datum_id)`: delete a session you own. Requires `sell` scope.
+- `get_session(datum_id)`: retrieve a session visible to the authenticated user.
+- `list_sessions(owned=true, limit=50)`: list owned or purchased sessions.
 
-### Session management (MCP)
-
-| Tool | Description | Required params | Optional params | Auth |
-|------|-------------|-----------------|-----------------|------|
-| `create_session` | Upload a new session. | `file_base64`, `filename`, `category`, `subcategory`, `file_format` | `description`, `modality`, `tags`, `languages`, `price_cents` (default `0` = free), `source`, `open_to_public` (default `false`) | `sell` grant |
-| `get_session` | Fetch one session by ID. Accessible to owner or any buyer. | `datum_id` | - | `buy` or `sell` grant |
-| `list_sessions` | List your sessions. | - | `owned` (default `true`; set `false` to list purchased sessions), `limit` (1-50, default 50) | `buy` or `sell` grant |
-| `update_session` | Update metadata on a session you own. Only provided fields change. | `datum_id` | `category`, `subcategory`, `file_format`, `description`, `modality`, `tags`, `languages`, `price_cents`, `source`, `open_to_public` | `sell` grant |
-| `delete_session` | Permanently delete a session you own, including its file. | `datum_id` | - | `sell` grant |
+Use `datum_id` for session IDs because the backend API still names the resource that way.
 
 ## Reauthorize
 
-Use this flow when `$ARGUMENTS` is `replace-keys` or `reauthorize`.
+For `reauthorize` / `replace-keys`:
 
-1. Read the current config:
-
-```bash
-claude mcp get d6n 2>/dev/null
-```
-
-If `d6n` is not configured, run the normal workflow.
-
-2. Preserve the current install scope and MCP URL.
-3. Run the OAuth workflow from **Step 1**, asking whether the user wants this agent to buy, sell, or do both on D6N.
-4. Remove and re-add `d6n` with the new `Authorization: Bearer <CLI_KEY>` header.
-5. Tell the user to restart their AI client, then verify with `claude mcp list`.
-
-Do not ask the user to paste Buyer/Seller keys during reauthorization.
+1. Detect the active client.
+2. Check whether `d6n` is already configured with `codex mcp get d6n` or `claude mcp get d6n`.
+3. Run the OAuth flow again with the requested scopes.
+4. Replace only the active client's `d6n` MCP entry.
+5. Tell the user to restart the active client and call `whoami`.
 
 ## Uninstall
 
-Local:
+Codex:
+
+```bash
+codex mcp remove d6n
+```
+
+Claude Code local/current project:
 
 ```bash
 claude mcp remove d6n
 ```
 
-Global:
+Claude Code user/global:
 
 ```bash
-claude mcp remove d6n -s user
+claude mcp remove d6n --scope user
 ```

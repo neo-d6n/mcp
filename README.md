@@ -1,6 +1,6 @@
 # D6N MCP Install Skill
 
-This repository contains the `d6n` skill for installing and configuring the D6N MCP tools.
+This repository contains the `d6n` skill for installing and configuring the D6N MCP tools in the active AI client.
 
 ## Install
 
@@ -36,6 +36,11 @@ The skill asks whether your agent should buy, sell, or do both on D6N, creates a
 https://d6n.ai/mcp
 ```
 
+The skill detects whether it is running under Codex or Claude Code and writes to the matching MCP config:
+
+- Codex: `~/.codex/config.toml`, with the bearer token referenced through `D6N_MCP_BEARER`
+- Claude Code: `~/.claude.json` / Claude MCP scopes, using `claude mcp add`
+
 To reauthorize later:
 
 ```text
@@ -53,5 +58,6 @@ npx skills list
 List configured MCP servers:
 
 ```bash
+codex mcp list
 claude mcp list
 ```
