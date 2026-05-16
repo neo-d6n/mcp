@@ -1,6 +1,6 @@
 ---
 name: d6n
-description: Install or reauthorize the D6N MCP server for the active AI coding agent using the D6N OAuth consent flow.
+description: Optional shortcut to install or reauthorize the D6N MCP server for the active AI coding agent using a human-created D6N agent auth code.
 argument-hint: [reauthorize|replace-keys]
 allowed-tools: Bash, AskUserQuestion
 ---
@@ -10,11 +10,24 @@ Copyright 2026 Neosphere Inc
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# D6N MCP Install
+# D6N MCP Install Shortcut
 
-Use this skill only to install or reauthorize the D6N MCP server. After install, the D6N MCP server itself exposes the working tools.
+This skill is optional. D6N does not require skill installation: agents can
+discover `https://d6n.ai/.well-known/agent.yml` or `https://d6n.ai/llms.txt`,
+claim a human-created agent auth code, and configure `https://d6n.ai/mcp` directly. Use this skill only as
+a convenience installer or reauthorization helper for clients that support
+skills. After install, the D6N MCP server itself exposes the working tools.
 
-D6N grants access through a user-approved OAuth URL. The approved result is a `cli_ke...` OBO credential scoped to `buy`, `sell`, or both. Do not ask the user to create or paste credentials.
+D6N grants access through a human-created six-digit agent auth code. The
+claimed result is a `cli_ke...` OBO credential scoped to `buy`, `sell`, or
+both. The six-digit code is not the final credential and is safe to ask for;
+the returned `auth_key` is the credential and must stay secret. Do not ask the
+user to paste credentials.
+
+Do not use any old OAuth URL, callback URL, or approval polling flow. The only
+agent authorization flow is: owner creates a six-digit code at
+`/aiauth/create`, agent claims it once at `/aiauth/claim/{code}`, then the
+agent uses the returned scoped Bearer credential.
 
 ## What To Install
 
@@ -30,7 +43,7 @@ Use the matching MCP endpoint:
 - Production: `https://d6n.ai/mcp`
 - Local dev: `http://127.0.0.1:8991/mcp`
 
-Use the matching OAuth HTTP origin:
+Use the matching agent auth HTTP origin:
 
 - Production: `https://d6n.ai`
 - Local dev: `http://127.0.0.1:8990`
@@ -49,7 +62,7 @@ Ask the user whether this agent should:
 - `sell`
 - `buy sell`
 
-Do not ask for raw OAuth scopes if the user already answered in normal language.
+Do not ask for raw scope strings if the user already answered in normal language.
 
 Build a stable `client_id`:
 
@@ -58,41 +71,48 @@ Build a stable `client_id`:
 
 D6N sanitizes this value server-side. Keep it short and readable.
 
-### 2. Create OAuth URL
+### 2. Ask The Human For A D6N Agent Auth Code
 
-```bash
-curl -sS -X POST "$D6N_HTTP_ORIGIN/oauth/create" \
-  -H 'Content-Type: application/json' \
-  -d '{"client_id":"<CLIENT_ID>","scopes":"<SCOPES>"}'
+Ask the human to open:
+
+```text
+https://d6n.ai/aiauth/create
 ```
 
-The response has:
+or, for local dev:
 
-```json
-{"oauth_id":"...","oauth_url":"..."}
+```text
+http://127.0.0.1:8990/aiauth/create
 ```
 
-Send the `oauth_url` to the user. Ask them to open it, sign in, approve, and reply `done`.
+Tell them to log in, enter the suggested agent name (`<CLIENT_ID>`), select the requested `buy` and/or `sell` scope, click Create, and return with the six-digit code. If they already have a code, use it.
 
-### 3. Collect Approved Credential
+The owner may click Cancel before creating the code. A created code is valid
+for 1 hour and can be claimed once. A successful claim returns a credential
+that currently expires after 24 hours. Reauthorizing with the same owner and
+agent name replaces older active D6N OBO credentials for that agent name.
 
-After the user replies, call:
+### 3. Claim The Code
+
+After the user gives the six-digit code, call:
 
 ```bash
-curl -sS "$D6N_HTTP_ORIGIN/oauth/check?client_id=<URL_ENCODED_CLIENT_ID>&scopes=<URL_ENCODED_SCOPES>&oauth_id=<OAUTH_ID>"
+curl -sS "$D6N_HTTP_ORIGIN/aiauth/claim/<CODE>"
 ```
 
 Results:
 
-- `{"status":"pending"}`: ask the user to finish approval, then check again.
-- `404`: OAuth request expired, was rejected, or was already consumed. Start over.
-- Approved result: contains `auth_key` or `obo_key`. Use that value immediately. The result is one-shot.
+- `404`: the code expired, was mistyped, or was already consumed. Ask the human to create a new code.
+- Approved result: contains `auth_key`, `client_id`, `scopes`, and `expiration_time`. Use `auth_key` immediately. The result is one-shot and the credential expires after 24 hours.
 
 Never print the full credential.
 
 ### 4. Configure MCP
 
-Let `<CLI_KEY>` be the approved `cli_ke...` credential.
+Let `<CLI_KEY>` be the approved `cli_ke...` credential. If the host cannot
+store secrets safely, keep the key only in the current execution context and
+tell the user they will need to reauthorize when the context ends or the
+24-hour credential expires.
 
 #### Codex
 
@@ -161,35 +181,61 @@ claude mcp list
 claude mcp get d6n
 ```
 
-Then ask the agent to call the D6N `whoami` MCP tool. Expected sentence:
+Then ask the agent to call a read-only D6N MCP tool. For a `sell` or
+`buy sell` credential, prefer:
 
 ```text
-You are <client_id> that can <scope> for user <username>.
+list_listings(owned=true, limit=1)
 ```
+
+For a `buy` credential, prefer:
+
+```text
+list_listings(owned=false, limit=1)
+```
+
+Expected: the call completes without an auth/configuration error. An empty list
+is valid.
 
 ## Current MCP Tools
 
-Identity:
+After the server is configured, use the MCP tools exposed by the live D6N
+server. The current production surface covers listing search/create/manage and
+seller order fulfillment.
 
-- `whoami`: confirms the configured D6N bearer token, client id, scope, and username.
+Listing creation tools require `sell` scope:
 
-Open orders:
+- `create_data_listing(files, title, description)`
+- `create_physical_good_listing(files, title, description, price_cents, condition)`
+- `create_saas_listing(files, title, description, service_url, price_cents, billing_interval)`
+- `create_vacation_rental_listing(files, title, price_cents, location_address, location_city, location_country, max_guests, bedrooms, bathrooms, availability_start, availability_end)`
+- `create_appointments_listing(files, title, description, price_cents, service_duration_minutes, meeting_platform)`
 
-- `create_buy_order(amount_cents, description)`: create an open buy order. Requires `buy` scope.
-- `create_sell_order(amount_cents, description)`: create an open sell order. Requires `sell` scope.
-- `delete_order(order_id)`: close an order the user/agent is allowed to manage.
+Listing read/manage tools:
 
-Marketplace sessions:
+- `search_listings(q, listing_type, tags_any, languages_any, amenities_any, price_cents_min, price_cents_max, currency, category, location_city, location_region, location_country, service_type, sort, mode, limit, cursor)`
+- `list_listings(owned=true, limit=50)`: list listings created by the authenticated user.
+- `list_listings(owned=false, limit=50)`: list listings purchased by the authenticated user.
+- `get_listing(datum_id)`: retrieve a listing visible to the authenticated user.
+- `delete_listing(datum_id)`: permanently delete a listing owned by the authenticated user; requires `sell` scope and ownership.
 
-- `search_sessions`: search available sessions.
-- `buy_session(datum_id)`: buy a session through MPP/payment challenge flow.
-- `create_session(...)`: upload a sellable session. Requires `sell` scope.
-- `update_session(datum_id, ...)`: update a session you own. Requires `sell` scope.
-- `delete_session(datum_id)`: delete a session you own. Requires `sell` scope.
-- `get_session(datum_id)`: retrieve a session visible to the authenticated user.
-- `list_sessions(owned=true, limit=50)`: list owned or purchased sessions.
+Seller order tools:
 
-Use `datum_id` for session IDs because the backend API still names the resource that way.
+- `get_order(order_id)`
+- `list_orders(role="seller", limit=20)`
+- `set_order_shipping_label(order_id, shipping_label_id)`
+- `set_order_tracking(order_id, tracking_number)`
+- `mark_order_delivered(order_id)`
+
+D6N does not currently expose an MCP `buy_listing` tool. Buyer purchase flows
+use `POST https://d6n.ai/buy` with a `buy` credential.
+
+Use `datum_id` for listing IDs because the backend API still names the resource
+that way. For create tools, `files` is required for every listing type and
+should contain one or more objects like
+`{"filename":"example.pdf","file_base64":"..."}`. Do not use the old `session`
+or open-order tool names unless the server explicitly exposes them in the
+active MCP tool list.
 
 ## Reauthorize
 
@@ -197,9 +243,10 @@ For `reauthorize` / `replace-keys`:
 
 1. Detect the active client.
 2. Check whether `d6n` is already configured with `codex mcp get d6n` or `claude mcp get d6n`.
-3. Run the OAuth flow again with the requested scopes.
-4. Replace only the active client's `d6n` MCP entry.
-5. Tell the user to restart the active client and call `whoami`.
+3. Run the agent auth code flow again with the requested scopes.
+4. Replace only the active client's `d6n` MCP entry after the new code is
+   claimed successfully.
+5. Tell the user to restart the active client and call a read-only listing tool.
 
 ## Uninstall
 
