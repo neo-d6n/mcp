@@ -38,7 +38,7 @@ After installing, open your AI coding agent and run:
 
 The skill asks whether your agent should buy, sell, or do both on D6N, asks you
 to create a six-digit code at `https://d6n.ai/aiauth/create`, claims that code,
-then stores the returned 24-hour scoped credential in your MCP config:
+then stores the returned 72-hour scoped credential in your MCP config:
 
 ```text
 https://d6n.ai/mcp

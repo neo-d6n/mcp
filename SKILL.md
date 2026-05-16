@@ -89,7 +89,7 @@ Tell them to log in, enter the suggested agent name (`<CLIENT_ID>`), select the 
 
 The owner may click Cancel before creating the code. A created code is valid
 for 1 hour and can be claimed once. A successful claim returns a credential
-that currently expires after 24 hours. Reauthorizing with the same owner and
+that currently expires after 72 hours. Reauthorizing with the same owner and
 agent name replaces older active D6N OBO credentials for that agent name.
 
 ### 3. Claim The Code
@@ -103,7 +103,7 @@ curl -sS "$D6N_HTTP_ORIGIN/aiauth/claim/<CODE>"
 Results:
 
 - `404`: the code expired, was mistyped, or was already consumed. Ask the human to create a new code.
-- Approved result: contains `auth_key`, `client_id`, `scopes`, and `expiration_time`. Use `auth_key` immediately. The result is one-shot and the credential expires after 24 hours.
+- Approved result: contains `auth_key`, `client_id`, `scopes`, and `expiration_time`. Use `auth_key` immediately. The result is one-shot and the credential expires after 72 hours.
 
 Never print the full credential.
 
@@ -112,7 +112,7 @@ Never print the full credential.
 Let `<CLI_KEY>` be the approved `cli_ke...` credential. If the host cannot
 store secrets safely, keep the key only in the current execution context and
 tell the user they will need to reauthorize when the context ends or the
-24-hour credential expires.
+72-hour credential expires.
 
 #### Codex
 
