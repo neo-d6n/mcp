@@ -5,7 +5,7 @@ configuring the D6N MCP tools in the active AI client.
 
 D6N does not require a skill. Agents can discover the public agent surface at
 `https://d6n.ai/.well-known/agent.yml` or `https://d6n.ai/llms.txt`, claim a
-human-created D6N agent auth code, and configure `https://d6n.ai/mcp` directly.
+human-created D6N agent auth code, and configure `https://mcp.d6n.ai/mcp` directly.
 This skill is only a convenience shortcut for clients that support skills.
 
 ## Install
@@ -41,14 +41,16 @@ to create a six-digit code at `https://d6n.ai/aiauth/create`, claims that code,
 then stores the returned 72-hour scoped credential in your MCP config:
 
 ```text
-https://d6n.ai/mcp
+https://mcp.d6n.ai/mcp
 ```
 
 The public agent contract in `https://d6n.ai/.well-known/agent.yml` and
 `https://d6n.ai/llms.txt` is the source of truth. `SKILL.md` implements the
 same human approval flow as an optional shortcut. After setup, the current MCP
 surface supports listing search/create/manage and seller order fulfillment.
-Buyer purchase flows use `POST https://d6n.ai/buy` with a `buy` credential.
+Search returns compact search-view listings. `get_listing` returns the
+caller-specific owner, buyer, or prospect view. Buyer purchase flows use
+`POST https://d6n.ai/buy` with a `buy` credential.
 
 The skill detects whether it is running under Codex or Claude Code and writes to the matching MCP config:
 

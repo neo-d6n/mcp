@@ -14,7 +14,7 @@ SPDX-License-Identifier: Apache-2.0
 
 This skill is optional. D6N does not require skill installation: agents can
 discover `https://d6n.ai/.well-known/agent.yml` or `https://d6n.ai/llms.txt`,
-claim a human-created agent auth code, and configure `https://d6n.ai/mcp` directly. Use this skill only as
+claim a human-created agent auth code, and configure `https://mcp.d6n.ai/mcp` directly. Use this skill only as
 a convenience installer or reauthorization helper for clients that support
 skills. After install, the D6N MCP server itself exposes the working tools.
 
@@ -38,17 +38,13 @@ Detect the active client before doing anything:
 3. Else if only `codex` or only `claude` exists on `PATH`, configure that client.
 4. Else ask which client to configure.
 
-Use the matching MCP endpoint:
+Use the D6N MCP endpoint:
 
-- Production: `https://d6n.ai/mcp`
-- Local dev: `http://127.0.0.1:8991/mcp`
+- `https://mcp.d6n.ai/mcp`
 
-Use the matching agent auth HTTP origin:
+Use the D6N agent auth HTTP origin:
 
-- Production: `https://d6n.ai`
-- Local dev: `http://127.0.0.1:8990`
-
-Prefer production unless the current repo/session is clearly using the local D6N stack.
+- `https://d6n.ai`
 
 ## Install Flow
 
@@ -79,12 +75,6 @@ Ask the human to open:
 https://d6n.ai/aiauth/create
 ```
 
-or, for local dev:
-
-```text
-http://127.0.0.1:8990/aiauth/create
-```
-
 Tell them to log in, enter the suggested agent name (`<CLIENT_ID>`), select the requested `buy` and/or `sell` scope, click Create, and return with the six-digit code. If they already have a code, use it.
 
 The owner may click Cancel before creating the code. A created code is valid
@@ -97,7 +87,7 @@ agent name replaces older active D6N OBO credentials for that agent name.
 After the user gives the six-digit code, call:
 
 ```bash
-curl -sS "$D6N_HTTP_ORIGIN/aiauth/claim/<CODE>"
+curl -sS -X POST "$D6N_HTTP_ORIGIN/aiauth/claim/<CODE>"
 ```
 
 Results:
@@ -191,7 +181,7 @@ list_listings(owned=true, limit=1)
 For a `buy` credential, prefer:
 
 ```text
-list_listings(owned=false, limit=1)
+search_listings(q="", limit=1)
 ```
 
 Expected: the call completes without an auth/configuration error. An empty list
@@ -213,10 +203,10 @@ Listing creation tools require `sell` scope:
 
 Listing read/manage tools:
 
-- `search_listings(q, listing_type, tags_any, languages_any, amenities_any, price_cents_min, price_cents_max, currency, category, location_city, location_region, location_country, service_type, sort, mode, limit, cursor)`
-- `list_listings(owned=true, limit=50)`: list listings created by the authenticated user.
-- `list_listings(owned=false, limit=50)`: list listings purchased by the authenticated user.
-- `get_listing(datum_id)`: retrieve a listing visible to the authenticated user.
+- `search_listings(q, listing_type, tags_any, languages_any, amenities_any, price_cents_min, price_cents_max, currency, category, location_city, location_region, location_country, service_type, sort, mode, limit, cursor)`: public search view for discovery.
+- `list_listings(owned=true, limit=50)`: owner view for listings created by the authenticated user.
+- `list_listings(owned=false, limit=50)`: buyer view for listings purchased by the authenticated user.
+- `get_listing(datum_id)`: owner view for the seller, buyer view for the purchaser, or prospect view for an authenticated non-purchaser on public listings.
 - `delete_listing(datum_id)`: permanently delete a listing owned by the authenticated user; requires `sell` scope and ownership.
 
 Seller order tools:
@@ -236,6 +226,15 @@ should contain one or more objects like
 `{"filename":"example.pdf","file_base64":"..."}`. Do not use the old `session`
 or open-order tool names unless the server explicitly exposes them in the
 active MCP tool list.
+
+Listing responses are intentionally read-mode specific. Public search returns
+the compact search view. `get_listing` returns a prospect, buyer, or owner view
+based on the authenticated caller. Owner views include `editable_fields`.
+Prospect views may include `search_fields`, a list of field names useful for a
+compact display digest; the values are already present on the payload. Do not
+expect raw `tags`, `owner_id`, `media_ids`, backend timestamps, physical-good
+`inventory_count`, physical-good `sku`, or `seller_notes` in public, prospect,
+or buyer responses.
 
 ## Reauthorize
 
