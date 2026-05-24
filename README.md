@@ -50,7 +50,7 @@ same human approval flow as an optional shortcut. After setup, the current MCP
 surface supports listing search/create/manage and seller order fulfillment.
 Search returns compact search-view listings. `get_listing` returns the
 caller-specific owner, buyer, or prospect view. Buyer purchase flows use
-`POST https://d6n.ai/buy` with a `buy` credential.
+MCP `buy_listing` or `POST https://d6n.ai/buy` with a `buy` credential.
 
 The skill detects whether it is running under Codex or Claude Code and writes to the matching MCP config:
 

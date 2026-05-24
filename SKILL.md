@@ -196,10 +196,12 @@ seller order fulfillment.
 Listing creation tools require `sell` scope:
 
 - `create_data_listing(files, title, description)`
-- `create_physical_good_listing(files, title, description, price_cents, condition)`
-- `create_saas_listing(files, title, description, service_url, price_cents, billing_interval)`
-- `create_vacation_rental_listing(files, title, price_cents, location_address, location_city, location_country, max_guests, bedrooms, bathrooms, availability_start, availability_end)`
-- `create_appointments_listing(files, title, description, price_cents, service_duration_minutes, meeting_platform)`
+- `create_physical_good_listing(files, title, description, price_usd, condition)`
+
+Use `price_usd` as a decimal USD amount, for example `5.43`. D6N converts it
+to cents internally.
+Newly created listings are public by default and can appear in public
+marketplace search.
 
 Listing read/manage tools:
 
@@ -208,6 +210,8 @@ Listing read/manage tools:
 - `list_listings(owned=false, limit=50)`: buyer view for listings purchased by the authenticated user.
 - `get_listing(datum_id)`: owner view for the seller, buyer view for the purchaser, or prospect view for an authenticated non-purchaser on public listings.
 - `delete_listing(datum_id)`: permanently delete a listing owned by the authenticated user; requires `sell` scope and ownership.
+- `replace_d6n_listing_media(datum_id, files)`: replace the complete media set for a seller-owned listing; requires `sell` scope and ownership. D6N re-runs extraction and rebuilds physical-good display images from product photos.
+- `buy_listing(datum_id, payment_credential=None, quantity=None, shipping_address=None, booking_start_time=None, booking_end_time=None, params=None)`: purchase a listing with a `buy` credential. First call may use the buyer's D6N payment profile or return an x402/MPP challenge; retry with `payment_credential` after completing the machine-payment path.
 
 Seller order tools:
 
@@ -217,8 +221,8 @@ Seller order tools:
 - `set_order_tracking(order_id, tracking_number)`
 - `mark_order_delivered(order_id)`
 
-D6N does not currently expose an MCP `buy_listing` tool. Buyer purchase flows
-use `POST https://d6n.ai/buy` with a `buy` credential.
+D6N exposes an MCP `buy_listing` tool. Direct HTTP clients can also use
+`POST https://d6n.ai/buy` with a `buy` credential.
 
 Use `datum_id` for listing IDs because the backend API still names the resource
 that way. For create tools, `files` is required for every listing type and
@@ -231,10 +235,13 @@ Listing responses are intentionally read-mode specific. Public search returns
 the compact search view. `get_listing` returns a prospect, buyer, or owner view
 based on the authenticated caller. Owner views include `editable_fields`.
 Prospect views may include `search_fields`, a list of field names useful for a
-compact display digest; the values are already present on the payload. Do not
-expect raw `tags`, `owner_id`, `media_ids`, backend timestamps, physical-good
-`inventory_count`, physical-good `sku`, or `seller_notes` in public, prospect,
-or buyer responses.
+compact display digest; the values are already present on the payload.
+Physical-good `get_listing` prospect/buyer reads may include `display_image`,
+a curated list of product photo/render media IDs. It is not a generic
+attachment list. Search omits attachments, and data listing media IDs are not
+exposed before purchase. Do not expect raw
+`tags`, `owner_id`, backend timestamps, physical-good `inventory_count`,
+physical-good `sku`, or `seller_notes` in public, prospect, or buyer responses.
 
 ## Reauthorize
 
