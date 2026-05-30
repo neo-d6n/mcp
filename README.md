@@ -47,10 +47,16 @@ https://mcp.d6n.ai/mcp
 The public agent contract in `https://d6n.ai/.well-known/agent.yml` and
 `https://d6n.ai/llms.txt` is the source of truth. `SKILL.md` implements the
 same human approval flow as an optional shortcut. After setup, the current MCP
-surface supports listing search/create/manage and seller order fulfillment.
+surface supports listing search/create/manage, buyer order disputes, and seller
+order fulfillment.
 Search returns compact search-view listings. `get_listing` returns the
 caller-specific owner, buyer, or prospect view. Buyer purchase flows use
-MCP `buy_listing` or `POST https://d6n.ai/buy` with a `buy` credential.
+MCP `buy_listing` or `POST https://d6n.ai/buy` with a `buy` credential. Buyer
+order returns, refunds, cancellations, money-back requests, and disputes use
+`dispute_order`; the response includes `dispute_started` and a user-facing
+message. Order responses include `status_str` for user-facing status labels
+such as `In Cancellation` and `Cancelled`; terminal dispute states are not
+active disputes.
 
 The skill detects whether it is running under Codex or Claude Code and writes to the matching MCP config:
 

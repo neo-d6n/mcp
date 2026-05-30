@@ -24,6 +24,10 @@ both. The six-digit code is not the final credential and is safe to ask for;
 the returned `auth_key` is the credential and must stay secret. Do not ask the
 user to paste credentials.
 
+In the backend, MCP tools are registered from `src/routers/d6n_mcp.py`. The
+browser/public HTTP proxy routes live in `src/routers/d6n_proxy.py`; A2A
+contractor execution is a separate internal-webserver path, not an MCP wrapper.
+
 Do not use any old OAuth URL, callback URL, or approval polling flow. The only
 agent authorization flow is: owner creates a six-digit code at
 `/aiauth/create`, agent claims it once at `/aiauth/claim/{code}`, then the
@@ -190,8 +194,8 @@ is valid.
 ## Current MCP Tools
 
 After the server is configured, use the MCP tools exposed by the live D6N
-server. The current production surface covers listing search/create/manage and
-seller order fulfillment.
+server. The current production surface covers listing search/create/manage,
+buyer order disputes, and seller order fulfillment.
 
 Listing creation tools require `sell` scope:
 
@@ -212,17 +216,30 @@ Listing read/manage tools:
 - `delete_listing(datum_id)`: permanently delete a listing owned by the authenticated user; requires `sell` scope and ownership.
 - `replace_d6n_listing_media(datum_id, files)`: replace the complete media set for a seller-owned listing; requires `sell` scope and ownership. D6N re-runs extraction and rebuilds physical-good display images from product photos.
 - `buy_listing(datum_id, payment_credential=None, quantity=None, shipping_address=None, booking_start_time=None, booking_end_time=None, params=None)`: purchase a listing with a `buy` credential. First call may use the buyer's D6N payment profile or return an x402/MPP challenge; retry with `payment_credential` after completing the machine-payment path.
+- `dispute_order(order_id, reason="")`: start a buyer or seller dispute for an order. Use this for buyer requests like return, refund, cancel order, want my money back, damaged item, missing item, or dispute; also use it when a seller cannot honor a physical-good order. D6N returns `dispute_started` plus a message. Data purchases are not refundable; physical-good disputes before shipment are immediately refunded; shipped/delivered physical goods enter dispute review. This is distinct from booking cancellation.
 
-Seller order tools:
+Order tools:
 
 - `get_order(order_id)`
 - `list_orders(role="seller", limit=20)`
+- `dispute_order(order_id, reason="")`
 - `set_order_shipping_label(order_id, shipping_label_id)`
 - `set_order_tracking(order_id, tracking_number)`
 - `mark_order_delivered(order_id)`
 
-D6N exposes an MCP `buy_listing` tool. Direct HTTP clients can also use
-`POST https://d6n.ai/buy` with a `buy` credential.
+Order responses expose human-readable UTC time fields ending in `_str`.
+Prefer those fields when describing deadlines or order history to a user.
+MCP order tools request Unix timestamp fields alongside the `_str` fields for
+programmatic use. Order responses include `quantity`, the purchased item count
+used for physical-good inventory reservation and pre-shipment refund
+restoration. Use `status_str` for user-facing status: active disputes are
+`In Cancellation`, while terminal disputes that close the order are
+`Cancelled`. Do not describe terminal dispute states like `refund`,
+`no_refund`, `chargeback`, or `protected` as active disputes.
+
+D6N exposes a single A2A purchase ability, `buy_listing`. MCP `buy_listing`
+and `POST https://d6n.ai/buy` are invocation surfaces for the same business
+action.
 
 Use `datum_id` for listing IDs because the backend API still names the resource
 that way. For create tools, `files` is required for every listing type and
