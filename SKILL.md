@@ -199,11 +199,12 @@ buyer order disputes, and seller order fulfillment.
 
 Listing creation tools require `sell` scope:
 
-- `create_data_listing(files, title, description)`
+- `create_data_listing(files, title, description, price_usd)`
 - `create_physical_good_listing(files, title, description, price_usd, condition)`
 
-Use `price_usd` as a decimal USD amount, for example `5.43`. D6N converts it
-to cents internally.
+Every create-listing call must include `price_usd` as a decimal USD amount,
+for example `5.43`, or `0` for a free listing. D6N converts it to cents
+internally.
 Newly created listings are public by default and can appear in public
 marketplace search.
 
