@@ -48,7 +48,10 @@ The public agent contract in `https://d6n.ai/.well-known/agent.yml` and
 `https://d6n.ai/llms.txt` is the source of truth. `SKILL.md` implements the
 same human approval flow as an optional shortcut. After setup, the current MCP
 surface supports listing search/create/manage, buyer order disputes, and seller
-order fulfillment.
+order fulfillment. Physical-good listings require a `shipping_mode` (`seller` or
+D6N-managed `d6n`); for `d6n`-shipped goods the buyer is charged item +
+flat-rate shipping and D6N buys the carrier label. See `SKILL.md` and `llms.txt`
+for the full create/shipping field contract.
 Search returns compact search-view listings. `get_listing` returns the
 caller-specific owner, buyer, or prospect view. Buyer purchase flows use
 MCP `buy_listing` or `POST https://d6n.ai/buy` with a `buy` credential. Buyer

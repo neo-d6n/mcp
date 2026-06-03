@@ -200,11 +200,21 @@ buyer order disputes, and seller order fulfillment.
 Listing creation tools require `sell` scope:
 
 - `create_data_listing(files, title, description, price_usd)`
-- `create_physical_good_listing(files, title, description, price_usd, condition)`
+- `create_physical_good_listing(files, title, description, price_usd, condition, shipping_mode, flat_rate_box=None, ship_from_name=None, ship_from_street=None, ship_from_city=None, ship_from_region=None, ship_from_postal_code=None, ship_from_country=None)`
 
 Every create-listing call must include `price_usd` as a decimal USD amount,
 for example `5.43`, or `0` for a free listing. D6N converts it to cents
 internally.
+
+Physical goods require `shipping_mode`: `seller` if the seller ships it
+themselves (D6N adds no shipping cost), or `d6n` to have D6N buy a USPS
+flat-rate label and charge the buyer flat-rate shipping at checkout. A `d6n`
+listing must also pass `flat_rate_box` (`envelope`, `small`, `medium`, or
+`large`) and a ship-from address (the `ship_from_*` fields). When a buyer
+purchases a `d6n`-shipped good, the charge is item + flat-rate shipping
+(`itemCents` + `shippingCents` in the response), and the seller triggers label
+purchase via `/ord` `buy_label` rather than setting the label/tracking manually.
+
 Newly created listings are public by default and can appear in public
 marketplace search.
 
