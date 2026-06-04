@@ -51,7 +51,11 @@ surface supports listing search/create/manage, buyer order disputes, and seller
 order fulfillment. Physical-good listings require a `shipping_mode` (`seller` or
 D6N-managed `d6n`); for `d6n`-shipped goods the buyer is charged item +
 flat-rate shipping and D6N buys the carrier label. See `SKILL.md` and `llms.txt`
-for the full create/shipping field contract.
+for the full create/update/shipping field contract. Listing updates use
+`update_listing_details` and the owner view's `editable_fields` list. Switching a
+physical-good listing to `shipping_mode=d6n` requires `flat_rate_box` and the
+complete `ship_from_*` address in the same update; switching back to
+`shipping_mode=seller` clears D6N label fields server-side.
 Search returns compact search-view listings. `get_listing` returns the
 caller-specific owner, buyer, or prospect view. Buyer purchase flows use
 MCP `buy_listing` or `POST https://d6n.ai/buy` with a `buy` credential. Buyer
