@@ -179,13 +179,13 @@ Then ask the agent to call a read-only D6N MCP tool. For a `sell` or
 `buy sell` credential, prefer:
 
 ```text
-list_listings(owned=true, limit=1)
+list_my_d6n_listings(limit=1)
 ```
 
 For a `buy` credential, prefer:
 
 ```text
-search_listings(q="", limit=1)
+search_d6n_listings(q="", limit=1)
 ```
 
 Expected: the call completes without an auth/configuration error. An empty list
@@ -200,17 +200,23 @@ buyer order disputes, and seller order fulfillment.
 Listing creation tools require `sell` scope:
 
 - `create_data_listing(files, title, description, price_usd)`
-- `create_physical_good_listing(files, title, description, price_usd, condition, shipping_mode, flat_rate_box=None, ship_from_name=None, ship_from_street=None, ship_from_city=None, ship_from_region=None, ship_from_postal_code=None, ship_from_country=None)`
+- `create_physical_good_listing(files, title, description, price_usd, condition, shipping_mode, inventory_count=None, flat_rate_box=None, ship_from_name=None, ship_from_street=None, ship_from_city=None, ship_from_region=None, ship_from_postal_code=None, ship_from_country=None)`
 
 Every create-listing call must include `price_usd` as a decimal USD amount,
 for example `5.43`, or `0` for a free listing. D6N converts it to cents
 internally.
+For physical goods, include `inventory_count` when the seller gives on-hand
+quantity while creating the listing.
 
 Physical goods require `shipping_mode`: `seller` if the seller ships it
 themselves (D6N adds no shipping cost), or `d6n` to have D6N buy a USPS
-flat-rate label and charge the buyer flat-rate shipping at checkout. A `d6n`
+flat-rate label and charge the buyer flat-rate shipping at checkout. Do not
+infer this value; if the seller has not explicitly chosen seller-shipped or
+D6N-shipped, ask before creating the listing. A `d6n`
 listing must also pass `flat_rate_box` (`envelope`, `small`, `medium`, or
-`large`) and a ship-from address (the `ship_from_*` fields). When a buyer
+`large`) and a ship-from address (the `ship_from_*` fields); MCP clients should
+collect these fields directly because the browser-only package prompt is not
+available over MCP. When a buyer
 purchases a `d6n`-shipped good, the charge is item + flat-rate shipping
 (`itemCents` + `shippingCents` in the response), and the seller triggers label
 purchase via `/ord` `buy_label` rather than setting the label/tracking manually.
@@ -220,26 +226,26 @@ marketplace search.
 
 Listing read/manage tools:
 
-- `search_listings(q, listing_type, tags_any, languages_any, amenities_any, price_cents_min, price_cents_max, currency, category, location_city, location_region, location_country, service_type, sort, mode, limit, cursor)`: public search view for discovery.
-- `list_listings(owned=true, limit=50)`: owner view for listings created by the authenticated user.
-- `list_listings(owned=false, limit=50)`: buyer view for listings purchased by the authenticated user.
-- `get_listing(datum_id)`: owner view for the seller, buyer view for the purchaser, or prospect view for an authenticated non-purchaser on public listings.
-- `update_listing_details(datum_id, fields=None, price_usd=None, open_to_public=None, access_terms=None, product_url=None, seller_notes=None, inventory_count=None, sku=None, condition=None, shipping_origin=None, shipping_mode=None, flat_rate_box=None, ship_from_name=None, ship_from_street=None, ship_from_city=None, ship_from_region=None, ship_from_postal_code=None, ship_from_country=None, brand=None, model=None, color=None, dimensions=None, weight=None, return_policy=None)`: update editable owner fields; requires `sell` scope and ownership. First read the owner view and use only `editable_fields`. `price_usd` converts to `price_cents`.
-- `delete_listing(datum_id)`: permanently delete a listing owned by the authenticated user; requires `sell` scope and ownership.
+- `search_d6n_listings(q, listing_type, tags_any, languages_any, amenities_any, price_cents_min, price_cents_max, currency, category, location_city, location_region, location_country, service_type, sort, mode, limit, cursor)`: public search view for discovery.
+- `list_my_d6n_listings(limit=50)`: owner view for listings created by the authenticated user.
+- `get_d6n_listing(datum_id)`: owner view for the seller, buyer view for the purchaser, or prospect view for an authenticated non-purchaser on public listings.
+- `update_d6n_listing_details(datum_id, fields=None, price_usd=None, open_to_public=None, access_terms=None, product_url=None, seller_notes=None, inventory_count=None, sku=None, condition=None, shipping_origin=None, shipping_mode=None, flat_rate_box=None, ship_from_name=None, ship_from_street=None, ship_from_city=None, ship_from_region=None, ship_from_postal_code=None, ship_from_country=None, brand=None, model=None, color=None, dimensions=None, weight=None, return_policy=None)`: update editable owner fields; requires `sell` scope and ownership. First read the owner view and use only `editable_fields`. `price_usd` converts to `price_cents`.
+- `delete_d6n_listing(datum_id)`: permanently delete a listing owned by the authenticated user; requires `sell` scope and ownership.
 - `replace_d6n_listing_media(datum_id, files)`: replace the complete media set for a seller-owned listing; requires `sell` scope and ownership. D6N re-runs extraction and rebuilds physical-good display images from product photos.
-- `buy_listing(datum_id, payment_credential=None, quantity=None, shipping_address=None, booking_start_time=None, booking_end_time=None, params=None)`: purchase a listing with a `buy` credential. First call may use the buyer's D6N payment profile or return an x402/MPP challenge; retry with `payment_credential` after completing the machine-payment path.
+- `buy_d6n_listing(datum_id, payment_credential=None, quantity=None, shipping_address=None, booking_start_time=None, booking_end_time=None, params=None)`: purchase a listing with a `buy` credential. First call may use the buyer's D6N payment profile or return an x402/MPP challenge; retry with `payment_credential` after completing the machine-payment path.
 - `dispute_order(order_id, reason="")`: start a buyer or seller dispute for an order. Use this for buyer requests like return, refund, cancel order, want my money back, damaged item, missing item, or dispute; also use it when a seller cannot honor a physical-good order. D6N returns `dispute_started` plus a message. Data purchases are not refundable; physical-good disputes before shipment are immediately refunded; shipped/delivered physical goods enter dispute review. This is distinct from booking cancellation.
 
 Physical-good listing updates have the same shipping-mode rules as chat.d6n.ai
 and A2A: switching an existing listing to `shipping_mode="d6n"` requires
 `flat_rate_box` and the complete `ship_from_*` address in the same update.
 Switching from `d6n` to `seller` clears `flat_rate_box` and all `ship_from_*`
-label fields server-side.
+label fields server-side; confirm with the seller before making that change.
 
 Order tools:
 
-- `get_order(order_id)`
-- `list_orders(role="seller", limit=20)`
+- `get_d6n_order(order_id)`
+- `list_d6n_purchases(limit=20)`
+- `list_d6n_sales(limit=20)`
 - `dispute_order(order_id, reason="")`
 - `set_order_shipping_label(order_id, shipping_label_id)`
 - `set_order_tracking(order_id, tracking_number)`
@@ -255,7 +261,7 @@ restoration. Use `status_str` for user-facing status: active disputes are
 `Cancelled`. Do not describe terminal dispute states like `refund`,
 `no_refund`, `chargeback`, or `protected` as active disputes.
 
-D6N exposes a single A2A purchase ability, `buy_listing`. MCP `buy_listing`
+D6N exposes a single purchase ability, `buy_d6n_listing`. MCP `buy_d6n_listing`
 and `POST https://d6n.ai/buy` are invocation surfaces for the same business
 action.
 
@@ -267,11 +273,11 @@ or open-order tool names unless the server explicitly exposes them in the
 active MCP tool list.
 
 Listing responses are intentionally read-mode specific. Public search returns
-the compact search view. `get_listing` returns a prospect, buyer, or owner view
+the compact search view. `get_d6n_listing` returns a prospect, buyer, or owner view
 based on the authenticated caller. Owner views include `editable_fields`.
 Prospect views may include `search_fields`, a list of field names useful for a
 compact display digest; the values are already present on the payload.
-Physical-good `get_listing` prospect/buyer reads may include `display_image`,
+Physical-good `get_d6n_listing` prospect/buyer reads may include `display_image`,
 a curated list of product photo/render media IDs. It is not a generic
 attachment list. Search omits attachments, and data listing media IDs are not
 exposed before purchase. Do not expect raw

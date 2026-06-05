@@ -47,19 +47,23 @@ https://mcp.d6n.ai/mcp
 The public agent contract in `https://d6n.ai/.well-known/agent.yml` and
 `https://d6n.ai/llms.txt` is the source of truth. `SKILL.md` implements the
 same human approval flow as an optional shortcut. After setup, the current MCP
-surface supports listing search/create/manage, buyer order disputes, and seller
-order fulfillment. Physical-good listings require a `shipping_mode` (`seller` or
-D6N-managed `d6n`); for `d6n`-shipped goods the buyer is charged item +
-flat-rate shipping and D6N buys the carrier label. See `SKILL.md` and `llms.txt`
-for the full create/update/shipping field contract. Listing updates use
-`update_listing_details` and the owner view's `editable_fields` list. Switching a
+surface supports listing search/create/manage, buyer purchase history, seller
+sales history, buyer order disputes, and seller order fulfillment. Physical-good listings require a `shipping_mode` (`seller` or
+D6N-managed `d6n`) and clients must ask rather than infer it; for `d6n`-shipped
+goods the buyer is charged item + flat-rate shipping and D6N buys the carrier
+label. Physical-good create calls may include `inventory_count` when the seller
+gives on-hand quantity. See `SKILL.md` and `llms.txt` for the full
+create/update/shipping field contract. Listing updates use `update_d6n_listing_details` and the owner view's
+`editable_fields` list. Switching a
 physical-good listing to `shipping_mode=d6n` requires `flat_rate_box` and the
 complete `ship_from_*` address in the same update; switching back to
-`shipping_mode=seller` clears D6N label fields server-side.
-Search returns compact search-view listings. `get_listing` returns the
+`shipping_mode=seller` clears D6N label fields server-side, so confirm with the
+seller before making that change.
+Search returns compact search-view listings. `get_d6n_listing` returns the
 caller-specific owner, buyer, or prospect view. Buyer purchase flows use
-MCP `buy_listing` or `POST https://d6n.ai/buy` with a `buy` credential. Buyer
-order returns, refunds, cancellations, money-back requests, and disputes use
+MCP `buy_d6n_listing` or `POST https://d6n.ai/buy` with a `buy` credential. Buyer
+purchase history uses `list_d6n_purchases`; seller sales history uses
+`list_d6n_sales`. Buyer order returns, refunds, cancellations, money-back requests, and disputes use
 `dispute_order`; the response includes `dispute_started` and a user-facing
 message. Order responses include `status_str` for user-facing status labels
 such as `In Cancellation` and `Cancelled`; terminal dispute states are not
