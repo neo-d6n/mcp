@@ -218,8 +218,11 @@ listing must also pass `flat_rate_box` (`envelope`, `small`, `medium`, or
 collect these fields directly because the browser-only package prompt is not
 available over MCP. When a buyer
 purchases a `d6n`-shipped good, the charge is item + flat-rate shipping
-(`itemCents` + `shippingCents` in the response), and the seller triggers label
-purchase via `/ord` `buy_label` rather than setting the label/tracking manually.
+(`itemCents` + `shippingCents` in the challenge and response), and the seller
+triggers label purchase via `/ord` `buy_label` rather than setting the
+label/tracking manually. MCP/A2A clients provide `shipping_address` up front or
+use the OBO owner's saved profile shipping fallback when available; they do not
+run the browser-only shipping-estimate confirmation step.
 
 Newly created listings are public by default and can appear in public
 marketplace search.
@@ -232,7 +235,7 @@ Listing read/manage tools:
 - `update_d6n_listing_details(datum_id, fields=None, price_usd=None, open_to_public=None, access_terms=None, product_url=None, seller_notes=None, inventory_count=None, sku=None, condition=None, shipping_origin=None, shipping_mode=None, flat_rate_box=None, ship_from_name=None, ship_from_street=None, ship_from_city=None, ship_from_region=None, ship_from_postal_code=None, ship_from_country=None, brand=None, model=None, color=None, dimensions=None, weight=None, return_policy=None)`: update editable owner fields; requires `sell` scope and ownership. First read the owner view and use only `editable_fields`. `price_usd` converts to `price_cents`.
 - `delete_d6n_listing(datum_id)`: permanently delete a listing owned by the authenticated user; requires `sell` scope and ownership.
 - `replace_d6n_listing_media(datum_id, files)`: replace the complete media set for a seller-owned listing; requires `sell` scope and ownership. D6N re-runs extraction and rebuilds physical-good display images from product photos.
-- `buy_d6n_listing(datum_id, payment_credential=None, quantity=None, shipping_address=None, booking_start_time=None, booking_end_time=None, params=None)`: purchase a listing with a `buy` credential. First call may use the buyer's D6N payment profile or return an x402/MPP challenge; retry with `payment_credential` after completing the machine-payment path.
+- `buy_d6n_listing(datum_id, payment_credential=None, quantity=None, shipping_address=None, booking_start_time=None, booking_end_time=None, params=None)`: purchase a listing with a `buy` credential. External MCP/A2A clients pay with x402/MPP only: call once to receive the challenge, then retry with `payment_credential` after completing the machine-payment path. For shippable listings, pass `shipping_address` with `name`, `street`, `city`, `region`, `country`, and `postal_code`; if omitted, D6N may use the OBO owner's saved profile shipping address, and if neither exists the payment attempt is rejected before any charge. The challenge and final response include the shipping-inclusive amount plus `itemCents` and `shippingCents`.
 - `dispute_order(order_id, reason="")`: start a buyer or seller dispute for an order. Use this for buyer requests like return, refund, cancel order, want my money back, damaged item, missing item, or dispute; also use it when a seller cannot honor a physical-good order. D6N returns `dispute_started` plus a message. Data purchases are not refundable; physical-good disputes before shipment are immediately refunded; shipped/delivered physical goods enter dispute review. This is distinct from booking cancellation.
 
 Physical-good listing updates have the same shipping-mode rules as chat.d6n.ai
@@ -263,7 +266,9 @@ restoration. Use `status_str` for user-facing status: active disputes are
 
 D6N exposes a single purchase ability, `buy_d6n_listing`. MCP `buy_d6n_listing`
 and `POST https://d6n.ai/buy` are invocation surfaces for the same business
-action.
+action. MCP/A2A purchases never charge the human's saved D6N payment profile;
+that profile is only used by the first-party browser chat/profile UI after a
+human reviews the invoice, shipping address, and payment method.
 
 Use `datum_id` for listing IDs because the backend API still names the resource
 that way. For create tools, `files` is required for every listing type and
@@ -277,7 +282,7 @@ the compact search view. `get_d6n_listing` returns a prospect, buyer, or owner v
 based on the authenticated caller. Owner views include `editable_fields`.
 Prospect views may include `search_fields`, a list of field names useful for a
 compact display digest; the values are already present on the payload.
-Physical-good `get_d6n_listing` prospect/buyer reads may include `display_image`,
+Physical-good `get_d6n_listing` owner/buyer/prospect reads may include `display_image`,
 a curated list of product photo/render media IDs. It is not a generic
 attachment list. Search omits attachments, and data listing media IDs are not
 exposed before purchase. Do not expect raw

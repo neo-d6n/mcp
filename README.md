@@ -60,9 +60,18 @@ complete `ship_from_*` address in the same update; switching back to
 `shipping_mode=seller` clears D6N label fields server-side, so confirm with the
 seller before making that change.
 Search returns compact search-view listings. `get_d6n_listing` returns the
-caller-specific owner, buyer, or prospect view. Buyer purchase flows use
-MCP `buy_d6n_listing` or `POST https://d6n.ai/buy` with a `buy` credential. Buyer
-purchase history uses `list_d6n_purchases`; seller sales history uses
+caller-specific owner, buyer, or prospect view; physical-good full reads may
+include curated `display_image` product media IDs. Buyer purchase flows use
+MCP `buy_d6n_listing` or `POST https://d6n.ai/buy` with a `buy` credential and
+x402/MPP payment credential. External MCP/A2A clients do not charge the buyer's
+saved D6N payment profile; saved-card profile payment is only for first-party
+browser UI after explicit human confirmation. Shippable purchases require a
+ship-to address with `name`, `street`, `city`, `region`, `country`, and
+`postal_code`, unless D6N can use the OBO owner's saved profile shipping address
+as a read-only fallback. The x402/MPP challenge and final buy response include
+the shipping-inclusive amount plus `itemCents` and `shippingCents`; MCP/A2A
+clients do not run the browser-only shipping-estimate confirmation step.
+Buyer purchase history uses `list_d6n_purchases`; seller sales history uses
 `list_d6n_sales`. Buyer order returns, refunds, cancellations, money-back requests, and disputes use
 `dispute_order`; the response includes `dispute_started` and a user-facing
 message. Order responses include `status_str` for user-facing status labels
