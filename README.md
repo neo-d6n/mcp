@@ -53,7 +53,9 @@ listings use D6N-managed shipping in this activation: create calls default to
 `shipping_mode=d6n`, require `flat_rate_box` and a complete `ship_from_*`
 address, and charge the buyer item + flat-rate shipping so D6N can buy the
 carrier label. Physical-good create calls may include `inventory_count` when
-the seller gives on-hand quantity. See `SKILL.md` and `llms.txt` for the full
+the seller gives on-hand quantity. Owner listing lists include physical-good
+`inventory_count`; `inventory_count=0` means sold out and appears after
+available or untracked listings. See `SKILL.md` and `llms.txt` for the full
 create/update/shipping field contract. Listing updates use
 `update_d6n_listing_details` and the owner view's `editable_fields` list;
 `shipping_mode` is not editable in this activation.
@@ -67,7 +69,7 @@ browser UI after explicit human confirmation. Shippable purchases require a
 ship-to address with `name`, `street`, `city`, `region`, `country`, and
 `postal_code`, unless D6N can use the OBO owner's saved profile shipping address
 as a read-only fallback. The x402/MPP challenge and final buy response include
-the shipping-inclusive amount plus `itemCents` and `shippingCents`; MCP/A2A
+the total amount plus `itemCents`, `platformFeeCents`, and `shippingCents`; MCP/A2A
 clients do not run the browser-only shipping-estimate confirmation step.
 Buyer purchase history uses `list_d6n_purchases`; seller sales history uses
 `list_d6n_sales`. Delivered physical-good purchases can request a return with

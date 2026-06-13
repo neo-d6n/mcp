@@ -213,8 +213,8 @@ listings default to `shipping_mode="d6n"` server-side and must pass
 `flat_rate_box` (`envelope`, `small`, `medium`, or `large`) plus a ship-from
 address (the `ship_from_*` fields); MCP clients should collect these fields
 directly because the browser-only package prompt is not available over MCP.
-When a buyer purchases a physical good, the charge is item + flat-rate shipping
-(`itemCents` + `shippingCents` in the challenge and response). D6N buys the
+When a buyer purchases a physical good, the charge is item + platform fee + flat-rate shipping
+(`itemCents` + `platformFeeCents` + `shippingCents` in the challenge and response). D6N buys the
 outbound Shippo label when the order enters `paid` and buys the return label
 when a delivered order enters `return_requested`. MCP/A2A clients provide
 `shipping_address` up front or use the OBO owner's saved profile shipping
@@ -227,7 +227,7 @@ marketplace search.
 Listing read/manage tools:
 
 - `search_d6n_listings(q, listing_type, tags_any, languages_any, amenities_any, price_cents_min, price_cents_max, currency, category, location_city, location_region, location_country, service_type, sort, mode, limit, cursor)`: public search view for discovery.
-- `list_my_d6n_listings(limit=50)`: owner view for listings created by the authenticated user.
+- `list_my_d6n_listings(limit=50)`: owner view for listings created by the authenticated user. Physical-good owner rows include `inventory_count`; `inventory_count=0` means sold out and appears after available or untracked listings.
 - `get_d6n_listing(datum_id)`: owner view for the seller, buyer view for the purchaser, or prospect view for an authenticated non-purchaser on public listings.
 - `update_d6n_listing_details(datum_id, fields=None, price_usd=None, open_to_public=None, access_terms=None, product_url=None, seller_notes=None, inventory_count=None, sku=None, condition=None, shipping_origin=None, flat_rate_box=None, ship_from_name=None, ship_from_street=None, ship_from_city=None, ship_from_region=None, ship_from_postal_code=None, ship_from_country=None, brand=None, model=None, color=None, dimensions=None, weight=None, return_policy=None)`: update editable owner fields; requires `sell` scope and ownership. First read the owner view and use only `editable_fields`. `price_usd` converts to `price_cents`.
 - `delete_d6n_listing(datum_id)`: permanently delete a listing owned by the authenticated user; requires `sell` scope and ownership.
