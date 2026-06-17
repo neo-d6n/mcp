@@ -213,13 +213,14 @@ listings default to `shipping_mode="d6n"` server-side and must pass
 `flat_rate_box` (`envelope`, `small`, `medium`, or `large`) plus a ship-from
 address (the `ship_from_*` fields); MCP clients should collect these fields
 directly because the browser-only package prompt is not available over MCP.
-When a buyer purchases a physical good, the charge is item + platform fee + flat-rate shipping
-(`itemCents` + `platformFeeCents` + `shippingCents` in the challenge and response). D6N buys the
-outbound Shippo label when the order enters `paid` and buys the return label
-when a delivered order enters `return_requested`. MCP/A2A clients provide
-`shipping_address` up front or use the OBO owner's saved profile shipping
-fallback when available; they do not run the browser-only shipping-estimate
-confirmation step.
+When a buyer purchases a physical good, the charge is item + platform fee +
+`shippingCents=0` in the item-purchase challenge and response. Carrier labels
+are separate shipping-label service purchases: sellers buy outbound labels for
+paid orders, optionally with `cover_returns=True`; buyers get return labels for
+return-requested orders.
+MCP/A2A clients provide `shipping_address` up front or use the OBO owner's
+saved profile shipping fallback when available; they do not run the
+browser-only shipping-estimate confirmation step.
 
 Newly created listings are public by default and can appear in public
 marketplace search.
@@ -227,12 +228,12 @@ marketplace search.
 Listing read/manage tools:
 
 - `search_d6n_listings(q, listing_type, tags_any, languages_any, amenities_any, price_cents_min, price_cents_max, currency, category, location_city, location_region, location_country, service_type, sort, mode, limit, cursor)`: public search view for discovery.
-- `list_my_d6n_listings(limit=50)`: owner view for listings created by the authenticated user. Physical-good owner rows include `inventory_count`; `inventory_count=0` means sold out and appears after available or untracked listings.
+- `list_my_d6n_listings(limit=50)`: owner view for listings created by the authenticated user. Physical-good owner rows include `inventory_count`; physical-good `inventory_count=0` or a missing count means sold out and appears after available listings. Data-listing inventory is not applicable.
 - `get_d6n_listing(datum_id)`: owner view for the seller, buyer view for the purchaser, or prospect view for an authenticated non-purchaser on public listings.
 - `update_d6n_listing_details(datum_id, fields=None, price_usd=None, open_to_public=None, access_terms=None, product_url=None, seller_notes=None, inventory_count=None, sku=None, condition=None, shipping_origin=None, flat_rate_box=None, ship_from_name=None, ship_from_street=None, ship_from_city=None, ship_from_region=None, ship_from_postal_code=None, ship_from_country=None, brand=None, model=None, color=None, dimensions=None, weight=None, return_policy=None)`: update editable owner fields; requires `sell` scope and ownership. First read the owner view and use only `editable_fields`. `price_usd` converts to `price_cents`.
 - `delete_d6n_listing(datum_id)`: permanently delete a listing owned by the authenticated user; requires `sell` scope and ownership.
 - `update_d6n_listing_media(datum_id, files, replace=False)`: append media to a seller-owned listing, or replace the complete media set when `replace=True`; requires `sell` scope and ownership. D6N re-runs extraction and rebuilds physical-good display images from product photos.
-- `buy_d6n_listing(datum_id, payment_credential=None, quantity=None, shipping_address=None, booking_start_time=None, booking_end_time=None, params=None)`: purchase a listing with a `buy` credential. External MCP/A2A clients pay with x402/MPP only: call once to receive the challenge, then retry with `payment_credential` after completing the machine-payment path. For shippable listings, pass `shipping_address` with `name`, `street`, `city`, `region`, `country`, and `postal_code`; if omitted, D6N may use the OBO owner's saved profile shipping address, and if neither exists the payment attempt is rejected before any charge. The challenge and final response include the shipping-inclusive amount plus `itemCents` and `shippingCents`.
+- `buy_d6n_listing(datum_id, payment_credential=None, quantity=None, shipping_address=None, booking_start_time=None, booking_end_time=None, params=None)`: purchase a listing with a `buy` credential. External MCP/A2A clients pay with x402/MPP only: call once to receive the challenge, then retry with `payment_credential` after completing the machine-payment path. For shippable listings, pass `shipping_address` with `name`, `street`, `city`, `region`, `country`, and `postal_code`; if omitted, D6N may use the OBO owner's saved profile shipping address, and if neither exists the payment attempt is rejected before any charge. The challenge and final response include the total amount plus `itemCents`, `platformFeeCents`, and `shippingCents`; for new physical-good item purchases, `shippingCents` is `0`.
 - `request_order_return(order_id)`: request a return for a delivered physical-good purchase. It moves the order from `delivered` to `return_requested`; invalid states return the normal transition error. This is distinct from booking cancellation.
 
 Physical-good listing updates have the same D6N-managed shipping rules as
@@ -242,10 +243,16 @@ configuration.
 
 Order tools:
 
+Shipping-label tools require `buy` or `sell` scope and an order-party match;
+direction rules decide whether the caller can buy outbound or return labels.
+
 - `get_d6n_order(order_id)`
 - `list_d6n_purchases(limit=20)`
 - `list_d6n_sales(limit=20)`
 - `request_order_return(order_id)`
+- `buy_d6n_shipping_label(order_id, direction, carrier=None, cover_returns=False, payment_credential=None)`
+- `list_d6n_shipping_labels(limit=20)`
+- `refund_d6n_shipping_label(shipping_id)`
 - `get_order_progress_requirements(order_id)`
 - `send_order_progress_updates(order_id, to_state, inputs={})`
 
@@ -254,23 +261,32 @@ Prefer those fields when describing deadlines or order history to a user.
 MCP order tools request Unix timestamp fields alongside the `_str` fields for
 programmatic use. Order responses include `quantity`, the purchased item count
 used for physical-good inventory reservation and pre-shipment refund
-restoration. Use `status_str` for user-facing status.
-D6N-managed label generation is platform-driven: `paid` buys the outbound label
-and `return_requested` buys the return label. Progress tools infer buyer or
-seller from the authenticated token owner user id on the order; when an order is
-`return_label_sent`, buyers use `send_order_progress_updates` with
-`to_state=return_shipped` plus `return_tracking`. For physical goods,
+restoration. Use `status_str` for user-facing status and `status_hint`, when
+present, for the next-step explanation.
+D6N-managed labels are bought through the shipping-label service. Sellers use
+`buy_d6n_shipping_label(order_id, direction="outbound")` for paid orders; they
+may include `cover_returns=True` on outbound labels to prepay buyer return
+coverage. Buyers use `buy_d6n_shipping_label(order_id, direction="return")` for
+return-requested orders; if seller coverage exists, this creates the return
+label without buyer checkout. Progress tools infer buyer or seller from the
+authenticated token owner user id on the order; when an order is
+`return_label_sent`, buyers ship with the provided D6N label and carrier scans
+drive return progress. Do not ask buyers to report `return_tracking`. For physical goods,
 `return_shipped` and `return_to_sender` trigger the full buyer refund while
-processor fees and bought Shippo labels remain platform losses. D6N polls
-`shipped`/`in_transit` and `return_shipped`/`return_in_transit` tracking on each
-SLA tick; `return_delivered` and `return_delivery_failed` collapse the order to
-`returned` with a note.
+processor fees and non-refunded Shippo labels remain platform losses. If
+`return_shipped` or `return_in_transit` has `refund_recorded=true`, tell the user
+the refund is processed and no buyer or seller action is needed right now. D6N
+polls `shipped`/`in_transit` and `return_shipped`/`return_in_transit` tracking on
+each SLA tick; delivered return scans close to `returned`, while failed return
+scans leave the order in `return_delivery_failed`.
 
-D6N exposes a single purchase ability, `buy_d6n_listing`. MCP `buy_d6n_listing`
-and `POST https://d6n.ai/buy` are invocation surfaces for the same business
-action. MCP/A2A purchases never charge the human's saved D6N payment profile;
-that profile is only used by the first-party browser chat/profile UI after a
-human reviews the invoice, shipping address, and payment method.
+D6N exposes separate purchase abilities for item orders and shipping-label
+services. MCP `buy_d6n_listing` and `POST https://d6n.ai/buy` buy listings.
+MCP `buy_d6n_shipping_label` and `POST https://d6n.ai/buy/shipping` buy
+carrier labels for existing orders. MCP/A2A purchases never charge the human's
+saved D6N payment profile; that profile is only used by the first-party browser
+chat/profile UI after a human reviews the invoice, shipping address, and
+payment method.
 
 Use `datum_id` for listing IDs because the backend API still names the resource
 that way. For create tools, `files` is required for every listing type and

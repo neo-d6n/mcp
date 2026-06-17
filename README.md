@@ -48,14 +48,15 @@ The public agent contract in `https://d6n.ai/.well-known/agent.yml` and
 `https://d6n.ai/llms.txt` is the source of truth. `SKILL.md` implements the
 same human approval flow as an optional shortcut. After setup, the current MCP
 surface supports listing search/create/manage, buyer purchase history, seller
-sales history, buyer order returns, and seller order fulfillment. Physical-good
+sales history, buyer order returns, shipping-label purchase/refund, and seller order fulfillment. Physical-good
 listings use D6N-managed shipping in this activation: create calls default to
 `shipping_mode=d6n`, require `flat_rate_box` and a complete `ship_from_*`
-address, and charge the buyer item + flat-rate shipping so D6N can buy the
-carrier label. Physical-good create calls may include `inventory_count` when
+address, and item checkout charges item + platform fee. Carrier labels are
+separate shipping-label service purchases. Physical-good create calls may include `inventory_count` when
 the seller gives on-hand quantity. Owner listing lists include physical-good
-`inventory_count`; `inventory_count=0` means sold out and appears after
-available or untracked listings. See `SKILL.md` and `llms.txt` for the full
+`inventory_count`; physical-good `inventory_count=0` or a missing count means
+sold out and appears after available listings. Data-listing inventory is not
+applicable. See `SKILL.md` and `llms.txt` for the full
 create/update/shipping field contract. Listing updates use
 `update_d6n_listing_details` and the owner view's `editable_fields` list;
 `shipping_mode` is not editable in this activation.
@@ -69,23 +70,35 @@ browser UI after explicit human confirmation. Shippable purchases require a
 ship-to address with `name`, `street`, `city`, `region`, `country`, and
 `postal_code`, unless D6N can use the OBO owner's saved profile shipping address
 as a read-only fallback. The x402/MPP challenge and final buy response include
-the total amount plus `itemCents`, `platformFeeCents`, and `shippingCents`; MCP/A2A
-clients do not run the browser-only shipping-estimate confirmation step.
+the total amount plus `itemCents`, `platformFeeCents`, and `shippingCents`; for
+new physical-good item purchases `shippingCents` is `0`. MCP/A2A clients do not
+run the browser-only shipping-estimate confirmation step. Shipping labels use
+`buy_d6n_shipping_label`, `list_d6n_shipping_labels`, and
+`refund_d6n_shipping_label`. Sellers may pass `cover_returns=true` only on
+outbound labels to prepay buyer return coverage. Shipping-label invoices expose
+shipping label, optional return coverage, combined 3% platform fee, and total;
+internally the fee is tracked per label component so unused seller return
+coverage refunds include the return-coverage fee. Carrier/provider cost stays
+internal.
 Buyer purchase history uses `list_d6n_purchases`; seller sales history uses
 `list_d6n_sales`. Delivered physical-good purchases can request a return with
-`request_order_return`, which moves the order to `return_requested`; D6N then
-buys the return label and moves the order to `return_label_sent` when Shippo
-succeeds. Invalid states return the normal transition error. Order responses
+`request_order_return`, which moves the order to `return_requested`; the buyer
+then gets a return label with `buy_d6n_shipping_label(direction="return")`.
+If seller coverage exists, this creates the label without buyer checkout.
+Invalid states return the normal transition error. Order responses
 include `status_str` for user-facing status labels such as `Return Requested`
-and `Cancelled`. Progress tools infer buyer or seller from the authenticated
-token owner user id on the order. When an order is `return_label_sent`, buyer
-agents use `send_order_progress_updates` with `to_state=return_shipped` plus
-`return_tracking`. For physical goods, `return_shipped` and `return_to_sender`
-trigger the full buyer refund while processor fees and bought Shippo labels
-remain platform losses. D6N polls `shipped`/`in_transit` and
-`return_shipped`/`return_in_transit` tracking on each SLA tick;
-`return_delivered` and `return_delivery_failed` collapse the order to
-`returned` with a note.
+and `Cancelled`, and may include `status_hint` for user-facing next steps.
+Progress tools infer buyer or seller from the authenticated token owner user id
+on the order. When an order is `return_label_sent`, buyers ship with the
+provided D6N return label and carrier scans drive return progress. Do not ask
+buyers to report `return_tracking`. For physical goods, `return_shipped` and
+`return_to_sender` trigger the full buyer refund while processor fees and
+non-refunded Shippo labels remain platform losses. If `return_shipped` or
+`return_in_transit` has `refund_recorded=true`, tell the user the refund is
+processed and no buyer or seller action is needed right now. D6N polls
+`shipped`/`in_transit` and `return_shipped`/`return_in_transit` tracking on each
+SLA tick; delivered return scans close to `returned`, while failed return scans
+leave the order in `return_delivery_failed`.
 
 The skill detects whether it is running under Codex or Claude Code and writes to the matching MCP config:
 
