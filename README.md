@@ -99,6 +99,11 @@ processed and no buyer or seller action is needed right now. D6N polls
 `shipped`/`in_transit` and `return_shipped`/`return_in_transit` tracking on each
 SLA tick; delivered return scans close to `returned`, while failed return scans
 leave the order in `return_delivery_failed`.
+For physical-good item purchases, `paid` can mean the buyer payment is
+authorized and inventory reserved; D6N captures that item payment only when the
+outbound carrier first scans the package. The `paid` and `label_generated`
+pre-ship SLA share the same 48-hour deadline from `paid`; if it cancels before
+shipment, D6N cancels the authorization and restores reserved inventory.
 
 The skill detects whether it is running under Codex or Claude Code and writes to the matching MCP config:
 

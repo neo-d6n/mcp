@@ -199,7 +199,6 @@ buyer order returns, and seller order fulfillment.
 
 Listing creation tools require `sell` scope:
 
-- `create_data_listing(files, title, description, price_usd)`
 - `create_physical_good_listing(files, title, description, price_usd, condition, flat_rate_box, ship_from_name, ship_from_street, ship_from_city, ship_from_region, ship_from_postal_code, ship_from_country, inventory_count=None)`
 
 Every create-listing call must include `price_usd` as a decimal USD amount,
@@ -279,6 +278,11 @@ the refund is processed and no buyer or seller action is needed right now. D6N
 polls `shipped`/`in_transit` and `return_shipped`/`return_in_transit` tracking on
 each SLA tick; delivered return scans close to `returned`, while failed return
 scans leave the order in `return_delivery_failed`.
+For physical-good item purchases, `paid` can mean the buyer payment is
+authorized and inventory reserved; D6N captures that item payment only when the
+outbound carrier first scans the package. The `paid` and `label_generated`
+pre-ship SLA share the same 48-hour deadline from `paid`; if it cancels before
+shipment, D6N cancels the authorization and restores reserved inventory.
 
 D6N exposes separate purchase abilities for item orders and shipping-label
 services. MCP `buy_d6n_listing` and `POST https://d6n.ai/buy` buy listings.
@@ -302,8 +306,7 @@ Prospect views may include `search_fields`, a list of field names useful for a
 compact display digest; the values are already present on the payload.
 Physical-good `get_d6n_listing` owner/buyer/prospect reads may include `display_image`,
 a curated list of product photo/render media IDs. It is not a generic
-attachment list. Search omits attachments, and data listing media IDs are not
-exposed before purchase. Do not expect raw
+attachment list. Search omits attachments. Do not expect raw
 `tags`, `owner_id`, backend timestamps, physical-good `inventory_count`,
 physical-good `sku`, or `seller_notes` in public, prospect, or buyer responses.
 
