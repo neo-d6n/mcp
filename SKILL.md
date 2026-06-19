@@ -197,6 +197,10 @@ After the server is configured, use the MCP tools exposed by the live D6N
 server. The current production surface covers listing search/create/manage,
 buyer order returns, and seller order fulfillment.
 
+Account/profile tool:
+
+- `profile_info()`: return minimal D6N account info for the authenticated caller. Guests return `is_anonymous_guest=true` plus a note; authenticated users return `username`, `email_verified`, and `token_scope` when the bearer credential is an OBO token.
+
 Listing creation tools require `sell` scope:
 
 - `create_physical_good_listing(files, title, description, price_usd, condition, flat_rate_box, ship_from_name, ship_from_street, ship_from_city, ship_from_region, ship_from_postal_code, ship_from_country, inventory_count=None)`

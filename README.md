@@ -88,6 +88,11 @@ If seller coverage exists, this creates the label without buyer checkout.
 Invalid states return the normal transition error. Order responses
 include `status_str` for user-facing status labels such as `Return Requested`
 and `Cancelled`, and may include `status_hint` for user-facing next steps.
+
+Account/profile lookups use `profile_info()`. It returns minimal account data
+for the authenticated caller: `username`, `email_verified`, and `token_scope`
+when the bearer credential is an OBO token. Guest credentials return only
+`is_anonymous_guest=true` and the guest account note.
 Progress tools infer buyer or seller from the authenticated token owner user id
 on the order. When an order is `return_label_sent`, buyers ship with the
 provided D6N return label and carrier scans drive return progress. Do not ask
