@@ -59,7 +59,9 @@ sold out and appears after available listings. Data-listing inventory is not
 applicable. See `SKILL.md` and `llms.txt` for the full
 create/update/shipping field contract. Listing updates use
 `update_d6n_listing_details` and the owner view's `editable_fields` list;
-`shipping_mode` is not editable in this activation.
+`shipping_mode` is not editable in this activation. If package-size
+verification hides a physical-good listing, edit its listing details or media
+and then call `retry_making_listing_public`.
 Search returns compact search-view listings. `get_d6n_listing` returns the
 caller-specific owner, buyer, or prospect view; physical-good full reads may
 include curated `display_image` product media IDs. Buyer purchase flows use

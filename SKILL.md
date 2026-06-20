@@ -236,13 +236,16 @@ Listing read/manage tools:
 - `update_d6n_listing_details(datum_id, fields=None, price_usd=None, open_to_public=None, access_terms=None, product_url=None, seller_notes=None, inventory_count=None, sku=None, condition=None, shipping_origin=None, flat_rate_box=None, ship_from_name=None, ship_from_street=None, ship_from_city=None, ship_from_region=None, ship_from_postal_code=None, ship_from_country=None, brand=None, model=None, color=None, dimensions=None, weight=None, return_policy=None)`: update editable owner fields; requires `sell` scope and ownership. First read the owner view and use only `editable_fields`. `price_usd` converts to `price_cents`.
 - `delete_d6n_listing(datum_id)`: permanently delete a listing owned by the authenticated user; requires `sell` scope and ownership.
 - `update_d6n_listing_media(datum_id, files, replace=False)`: append media to a seller-owned listing, or replace the complete media set when `replace=True`; requires `sell` scope and ownership. D6N re-runs extraction and rebuilds physical-good display images from product photos.
+- `retry_making_listing_public(datum_id)`: after a hidden listing has been edited, rerun failed D6N listing verifications and make it public if the failures clear; requires `sell` scope and ownership.
 - `buy_d6n_listing(datum_id, payment_credential=None, quantity=None, shipping_address=None, booking_start_time=None, booking_end_time=None, params=None)`: purchase a listing with a `buy` credential. External MCP/A2A clients pay with x402/MPP only: call once to receive the challenge, then retry with `payment_credential` after completing the machine-payment path. For shippable listings, pass `shipping_address` with `name`, `street`, `city`, `region`, `country`, and `postal_code`; if omitted, D6N may use the OBO owner's saved profile shipping address, and if neither exists the payment attempt is rejected before any charge. The challenge and final response include the total amount plus `itemCents`, `platformFeeCents`, and `shippingCents`; for new physical-good item purchases, `shippingCents` is `0`.
 - `request_order_return(order_id)`: request a return for a delivered physical-good purchase. It moves the order from `delivered` to `return_requested`; invalid states return the normal transition error. This is distinct from booking cancellation.
 
 Physical-good listing updates have the same D6N-managed shipping rules as
 chat.d6n.ai and A2A: `shipping_mode` is not editable in this activation. Use
 `flat_rate_box` and the complete `ship_from_*` address to update label
-configuration.
+configuration. Package-size verification can hide a listing with owner-only
+`hide_reason.fails`; edit the listing or media before calling
+`retry_making_listing_public`.
 
 Order tools:
 
