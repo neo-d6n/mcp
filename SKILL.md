@@ -203,6 +203,7 @@ Account/profile tool:
 
 Listing creation tools require `sell` scope:
 
+- `is_latest_listing_creatable(listing_type=None, files=None, media_ids=None, title=None, description=None, price_usd=None, condition=None, flat_rate_box=None, ship_from_name=None, ship_from_street=None, ship_from_city=None, ship_from_region=None, ship_from_postal_code=None, ship_from_country=None)`: programmatically check the latest gathered physical-good listing details before create. The response returns only the highest-priority missing required attributes: priority 0 core fields (`title`, `description`, `price_usd`, `condition`), priority 1 `media`, then priority 2 D6N shipping fields. External MCP/A2A callers receive natural-language missing-attribute guidance.
 - `create_physical_good_listing(files, title, description, price_usd, condition, flat_rate_box, ship_from_name, ship_from_street, ship_from_city, ship_from_region, ship_from_postal_code, ship_from_country, inventory_count=None)`
 
 Every create-listing call must include `price_usd` as a decimal USD amount,
@@ -214,8 +215,9 @@ quantity while creating the listing.
 Physical goods use D6N-managed shipping in this activation. New physical-good
 listings default to `shipping_mode="d6n"` server-side and must pass
 `flat_rate_box` (`envelope`, `small`, `medium`, or `large`) plus a ship-from
-address (the `ship_from_*` fields); MCP clients should collect these fields
-directly because the browser-only package prompt is not available over MCP.
+address (the `ship_from_*` fields); MCP clients should use
+`is_latest_listing_creatable` for programmatic missing-attribute guidance and
+collect these fields directly.
 When a buyer purchases a physical good, the charge is item + platform fee +
 `shippingCents=0` in the item-purchase challenge and response. Carrier labels
 are separate shipping-label service purchases: sellers buy outbound labels for
