@@ -214,8 +214,11 @@ quantity while creating the listing.
 Physical goods use D6N-managed shipping in this activation. New physical-good
 listings default to `shipping_mode="d6n"` server-side and must pass
 `flat_rate_box` (`envelope`, `small`, `medium`, or `large`) plus a ship-from
-address (the `ship_from_*` fields); `create_physical_good_listing` returns
-programmatic missing-attribute guidance until those fields are complete.
+address (the `ship_from_*` fields). `create_physical_good_listing` checks the
+draft before creating; `update_d6n_listing_details` fetches the current listing,
+merges requested fields, and runs the same guard before updating. Guard
+failures return `ok=false`, `missing`, and `message` with only the current
+highest-priority missing attributes.
 When a buyer purchases a physical good, the charge is item + platform fee +
 `shippingCents=0` in the item-purchase challenge and response. Carrier labels
 are separate shipping-label service purchases: sellers buy outbound labels for
