@@ -51,10 +51,10 @@ surface supports listing search/create/manage, buyer purchase history, seller
 sales history, buyer order returns, shipping-label purchase/refund, and seller order fulfillment. Physical-good
 listings use D6N-managed shipping in this activation: create calls default to
 `shipping_mode=d6n`, require `flat_rate_box` and a complete `ship_from_*`
-address, and item checkout charges item + platform fee. Use
-`is_latest_listing_creatable` to check gathered physical-good create details;
-it returns the highest-priority missing required attributes first: core fields,
-then media, then D6N shipping. Carrier labels are separate shipping-label service purchases. Physical-good create calls may include `inventory_count` when
+address, and item checkout charges item + platform fee.
+`create_physical_good_listing` checks gathered draft details before creating
+and returns the highest-priority missing required attributes first: core
+fields, then media, then D6N shipping. Carrier labels are separate shipping-label service purchases. Physical-good create calls may include `inventory_count` when
 the seller gives on-hand quantity. Owner listing lists include physical-good
 `inventory_count`; physical-good `inventory_count=0` or a missing count means
 sold out and appears after available listings. Data-listing inventory is not
