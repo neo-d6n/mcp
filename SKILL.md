@@ -203,7 +203,7 @@ Account/profile tool:
 
 Listing creation tools require `sell` scope:
 
-- `create_physical_good_listing(files=None, title=None, description=None, price_usd=None, condition=None, flat_rate_box=None, ship_from_name=None, ship_from_street=None, ship_from_city=None, ship_from_region=None, ship_from_postal_code=None, ship_from_country=None, inventory_count=None)`: create a physical-good listing from the gathered draft. The tool forwards to the backend create API, which returns only the current highest-priority missing required attributes on readiness failure: priority 0 core fields (`title`, `description`, `price_usd`, `condition`), priority 1 `media`, then priority 2 D6N shipping fields. MCP clients provide media as base64 `files`; browser-only `media_ids` are not accepted on MCP. External MCP/A2A callers receive the backend natural-language missing-attribute guidance.
+- `create_physical_good_listing(files=None, title=None, description=None, price_usd=None, condition=None, flat_rate_box=None, ship_from_name=None, ship_from_street=None, ship_from_city=None, ship_from_region=None, ship_from_postal_code=None, ship_from_country=None, inventory_count=None)`: create a physical-good listing from the gathered draft. MCP clients provide media as base64 `files`; browser-only `media_ids` are not accepted on MCP. External MCP/A2A callers receive the normal tool or HTTP contract and backend validation/auth errors.
 
 Every create-listing call must include `price_usd` as a decimal USD amount,
 for example `5.43`, or `0` for a free listing. D6N converts it to cents
@@ -215,10 +215,9 @@ Physical goods use D6N-managed shipping in this activation. New physical-good
 listings default to `shipping_mode="d6n"` server-side and must pass
 `flat_rate_box` (`envelope`, `small`, `medium`, or `large`) plus a ship-from
 address (the `ship_from_*` fields). The backend `POST /datum` and
-`PUT /datum/{datum_id}` APIs own physical-good readiness. Create checks the
-submitted listing and media; update checks the current listing plus requested
-fields. Readiness failures return `ok=false`, `code`, `missing`, and `message`
-with only the current highest-priority missing attributes.
+`PUT /datum/{datum_id}` APIs own typed listing validation and persistence, not
+browser UI signal routing. External MCP/A2A callers receive the normal tool or
+HTTP contract and backend validation/auth errors.
 When a buyer purchases a physical good, the charge is item + platform fee +
 `shippingCents=0` in the item-purchase challenge and response. Carrier labels
 are separate shipping-label service purchases: sellers buy outbound labels for

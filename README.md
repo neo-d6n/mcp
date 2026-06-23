@@ -52,11 +52,9 @@ sales history, buyer order returns, shipping-label purchase/refund, and seller o
 listings use D6N-managed shipping in this activation: create calls default to
 `shipping_mode=d6n`, require `flat_rate_box` and a complete `ship_from_*`
 address, and item checkout charges item + platform fee.
-The backend create/update listing APIs own physical-good readiness: create
-checks the submitted listing and media, and update checks the current listing
-plus requested fields. Readiness failures return `ok=false`, `code`, `missing`,
-and `message` with the highest-priority missing attributes first: core fields,
-then media, then D6N shipping. Carrier labels are separate shipping-label service purchases. Physical-good create calls may include `inventory_count` when
+The backend create/update listing APIs own typed listing validation and
+persistence, not browser UI signal routing. External MCP/A2A callers receive
+the normal tool or HTTP contract and backend validation/auth errors. Carrier labels are separate shipping-label service purchases. Physical-good create calls may include `inventory_count` when
 the seller gives on-hand quantity. Owner listing lists include physical-good
 `inventory_count`; physical-good `inventory_count=0` or a missing count means
 sold out and appears after available listings. Data-listing inventory is not
