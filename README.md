@@ -53,8 +53,8 @@ listings use D6N-managed shipping in this activation: create calls default to
 `shipping_mode=d6n`, require `flat_rate_box` and a complete `ship_from_*`
 address, and item checkout charges item + platform fee.
 The backend create/update listing APIs own typed listing validation and
-persistence, not browser UI signal routing. External MCP/A2A callers receive
-the normal tool or HTTP contract and backend validation/auth errors. Carrier labels are separate shipping-label service purchases. Physical-good create calls may include `inventory_count` when
+persistence. External MCP/A2A callers receive the normal tool or HTTP contract
+and backend validation/auth errors. Carrier labels are separate shipping-label service purchases. Physical-good create calls may include `inventory_count` when
 the seller gives on-hand quantity. Owner listing lists include physical-good
 `inventory_count`; physical-good `inventory_count=0` or a missing count means
 sold out and appears after available listings. Data-listing inventory is not
@@ -62,21 +62,21 @@ applicable. See `SKILL.md` and `llms.txt` for the full
 create/update/shipping field contract. Listing updates use
 `update_d6n_listing_details` and the owner view's `editable_fields` list;
 `shipping_mode` is not editable in this activation. If package-size
-verification hides a physical-good listing, edit its listing details or media
-and then call `retry_making_listing_public`.
+verification hides a physical-good listing, call `retry_making_listing_public`
+to rerun failed checks. If the backend says the listing is not ready to retry,
+edit its listing details or media first.
 Search returns compact search-view listings. `get_d6n_listing` returns the
 caller-specific owner, buyer, or prospect view; physical-good full reads may
 include curated `display_image` product media IDs. Buyer purchase flows use
 MCP `buy_d6n_listing` or `POST https://d6n.ai/buy` with a `buy` credential and
 x402/MPP payment credential. External MCP/A2A clients do not charge the buyer's
-saved D6N payment profile; saved-card profile payment is only for first-party
-browser UI after explicit human confirmation. Shippable purchases require a
+saved D6N payment profile; saved-profile payment requires a first-party human
+checkout flow with explicit review and confirmation. Shippable purchases require a
 ship-to address with `name`, `street`, `city`, `region`, `country`, and
 `postal_code`, unless D6N can use the OBO owner's saved profile shipping address
 as a read-only fallback. The x402/MPP challenge and final buy response include
 the total amount plus `itemCents`, `platformFeeCents`, and `shippingCents`; for
-new physical-good item purchases `shippingCents` is `0`. MCP/A2A clients do not
-run the browser-only shipping-estimate confirmation step. Shipping labels use
+new physical-good item purchases `shippingCents` is `0`. Shipping labels use
 `buy_d6n_shipping_label`, `list_d6n_shipping_labels`, and
 `refund_d6n_shipping_label`. Sellers may pass `cover_returns=true` only on
 outbound labels to prepay buyer return coverage. Shipping-label invoices expose
