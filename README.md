@@ -74,9 +74,10 @@ saved D6N payment profile; saved-profile payment requires a first-party human
 checkout flow with explicit review and confirmation. Shippable purchases require a
 ship-to address with `name`, `street`, `city`, `region`, `country`, and
 `postal_code`, unless D6N can use the OBO owner's saved profile shipping address
-as a read-only fallback. The x402/MPP challenge and final buy response include
-the total amount plus `itemCents`, `platformFeeCents`, and buyer-paid checkout
-`shippingCents`. Shipping labels use
+as a read-only fallback. If D6N cannot get a live shipping quote for that
+address, the purchase is rejected before any payment challenge or charge. The
+x402/MPP challenge and final buy response include the total amount plus
+`itemCents`, `platformFeeCents`, and buyer-paid checkout `shippingCents`. Shipping labels use
 `buy_d6n_shipping_label`, `list_d6n_shipping_labels`, and
 `refund_d6n_shipping_label`. Sellers may pass `cover_returns=true` only on
 outbound labels to prepay buyer return coverage. Shipping-label invoices expose
