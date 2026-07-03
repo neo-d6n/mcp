@@ -51,7 +51,7 @@ surface supports listing search/create/manage, buyer purchase history, seller
 sales history, buyer order returns, shipping-label purchase/refund, and seller order fulfillment. Physical-good
 listings use D6N-managed shipping in this activation: create calls default to
 `shipping_mode=d6n`, require `flat_rate_box` and a complete `ship_from_*`
-address, and item checkout charges item + platform fee.
+address, and item checkout charges item + platform fee + checkout shipping.
 The backend create/update listing APIs own typed listing validation and
 persistence. External MCP/A2A callers receive the normal tool or HTTP contract
 and backend validation/auth errors. Carrier labels are separate shipping-label service purchases. Physical-good create calls may include `inventory_count` when
@@ -75,8 +75,8 @@ checkout flow with explicit review and confirmation. Shippable purchases require
 ship-to address with `name`, `street`, `city`, `region`, `country`, and
 `postal_code`, unless D6N can use the OBO owner's saved profile shipping address
 as a read-only fallback. The x402/MPP challenge and final buy response include
-the total amount plus `itemCents`, `platformFeeCents`, and `shippingCents`; for
-new physical-good item purchases `shippingCents` is `0`. Shipping labels use
+the total amount plus `itemCents`, `platformFeeCents`, and buyer-paid checkout
+`shippingCents`. Shipping labels use
 `buy_d6n_shipping_label`, `list_d6n_shipping_labels`, and
 `refund_d6n_shipping_label`. Sellers may pass `cover_returns=true` only on
 outbound labels to prepay buyer return coverage. Shipping-label invoices expose

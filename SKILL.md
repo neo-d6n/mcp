@@ -218,11 +218,11 @@ address (the `ship_from_*` fields). The backend `POST /datum` and
 `PUT /datum/{datum_id}` APIs own typed listing validation and persistence.
 External MCP/A2A callers receive the normal tool or HTTP contract and backend
 validation/auth errors.
-When a buyer purchases a physical good, the charge is item + platform fee +
-`shippingCents=0` in the item-purchase challenge and response. Carrier labels
-are separate shipping-label service purchases: sellers buy outbound labels for
-paid orders, optionally with `cover_returns=True`; buyers get return labels for
-return-requested orders.
+When a buyer purchases a physical good, the item-purchase challenge and response
+charge item + platform fee + `shippingCents`. Carrier-label tools still exist
+as separate service purchases in this activation: sellers buy outbound labels
+for paid orders, optionally with `cover_returns=True`; buyers get return labels
+for return-requested orders.
 MCP/A2A clients provide `shipping_address` up front or use the OBO owner's
 saved profile shipping fallback when available.
 
@@ -238,7 +238,7 @@ Listing read/manage tools:
 - `delete_d6n_listing(datum_id)`: permanently delete a listing owned by the authenticated user; requires `sell` scope and ownership.
 - `update_d6n_listing_media(datum_id, files, replace=False)`: append media to a seller-owned listing, or replace the complete media set when `replace=True`; requires `sell` scope and ownership. D6N re-runs extraction and rebuilds physical-good display images from product photos.
 - `retry_making_listing_public(datum_id)`: rerun failed D6N listing verifications for a hidden listing and make it public if the failures clear; if the backend says the listing is not ready to retry, edit listing details or media first. Requires `sell` scope and ownership.
-- `buy_d6n_listing(datum_id, payment_credential=None, quantity=None, shipping_address=None, booking_start_time=None, booking_end_time=None, params=None)`: purchase a listing with a `buy` credential. External MCP/A2A clients pay with x402/MPP only: call once to receive the challenge, then retry with `payment_credential` after completing the machine-payment path. For shippable listings, pass `shipping_address` with `name`, `street`, `city`, `region`, `country`, and `postal_code`; if omitted, D6N may use the OBO owner's saved profile shipping address, and if neither exists the payment attempt is rejected before any charge. The challenge and final response include the total amount plus `itemCents`, `platformFeeCents`, and `shippingCents`; for new physical-good item purchases, `shippingCents` is `0`.
+- `buy_d6n_listing(datum_id, payment_credential=None, quantity=None, shipping_address=None, booking_start_time=None, booking_end_time=None, params=None)`: purchase a listing with a `buy` credential. External MCP/A2A clients pay with x402/MPP only: call once to receive the challenge, then retry with `payment_credential` after completing the machine-payment path. For shippable listings, pass `shipping_address` with `name`, `street`, `city`, `region`, `country`, and `postal_code`; if omitted, D6N may use the OBO owner's saved profile shipping address, and if neither exists the payment attempt is rejected before any charge. The challenge and final response include the total amount plus `itemCents`, `platformFeeCents`, and buyer-paid checkout `shippingCents`.
 - `request_order_return(order_id)`: request a return for a delivered physical-good purchase. It moves the order from `delivered` to `return_requested`; invalid states return the normal transition error. This is distinct from booking cancellation.
 
 Physical-good listing updates have the same D6N-managed shipping rules as
