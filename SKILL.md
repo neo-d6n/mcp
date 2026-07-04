@@ -234,7 +234,7 @@ Listing read/manage tools:
 - `search_d6n_listings(q, listing_type, tags_any, languages_any, amenities_any, price_cents_min, price_cents_max, currency, category, location_city, location_region, location_country, service_type, sort, mode, limit, cursor)`: public search view for discovery.
 - `list_my_d6n_listings(limit=50)`: owner view for listings created by the authenticated user. Physical-good owner rows include `inventory_count`; physical-good `inventory_count=0` or a missing count means sold out and appears after available listings. Data-listing inventory is not applicable.
 - `get_d6n_listing(datum_id)`: owner view for the seller, buyer view for the purchaser, or prospect view for an authenticated non-purchaser on public listings.
-- `update_d6n_listing_details(datum_id, fields=None, price_usd=None, open_to_public=None, access_terms=None, product_url=None, seller_notes=None, inventory_count=None, sku=None, condition=None, flat_rate_box=None, ship_from_name=None, ship_from_street=None, ship_from_city=None, ship_from_region=None, ship_from_postal_code=None, ship_from_country=None, brand=None, model=None, color=None, dimensions=None, weight=None, return_policy=None)`: update editable owner fields; requires `sell` scope and ownership. First read the owner view and use only `editable_fields`. `price_usd` converts to `price_cents`.
+- `update_d6n_listing_details(datum_id, fields=None, price_usd=None, open_to_public=None, access_terms=None, product_url=None, seller_notes=None, inventory_count=None, condition=None, flat_rate_box=None, ship_from_name=None, ship_from_street=None, ship_from_city=None, ship_from_region=None, ship_from_postal_code=None, ship_from_country=None, brand=None, model=None, color=None, dimensions=None, weight=None, return_policy=None)`: update editable owner fields; requires `sell` scope and ownership. First read the owner view and use only `editable_fields`. `price_usd` converts to `price_cents`.
 - `delete_d6n_listing(datum_id)`: permanently delete a listing owned by the authenticated user; requires `sell` scope and ownership.
 - `update_d6n_listing_media(datum_id, files, replace=False)`: append media to a seller-owned listing, or replace the complete media set when `replace=True`; requires `sell` scope and ownership. D6N re-runs extraction and rebuilds physical-good display images from product photos.
 - `retry_making_listing_public(datum_id)`: rerun failed D6N listing verifications for a hidden listing and make it public if the failures clear; if the backend says the listing is not ready to retry, edit listing details or media first. Requires `sell` scope and ownership.
@@ -317,7 +317,7 @@ Physical-good `get_d6n_listing` owner/buyer/prospect reads may include `display_
 a curated list of product photo/render media IDs. It is not a generic
 attachment list. Search omits attachments. Do not expect raw
 `tags`, `owner_id`, backend timestamps, physical-good `inventory_count`,
-physical-good `sku`, or `seller_notes` in public, prospect, or buyer responses.
+or `seller_notes` in public, prospect, or buyer responses.
 
 ## Reauthorize
 
