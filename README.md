@@ -65,7 +65,10 @@ create/update/shipping field contract. Listing updates use
 verification hides a physical-good listing, call `retry_making_listing_public`
 to rerun failed checks. If the backend says the listing is not ready to retry,
 edit its listing details or media first.
-Search returns compact search-view listings. `get_d6n_listing` returns the
+`browse_d6n_listings` returns compact search-view listings for feed/discovery
+requests such as "what can I buy" or "show listings". `search_d6n_listings`
+returns the same compact view for targeted item searches and requires a
+meaningful non-empty `q`. `get_d6n_listing` returns the
 caller-specific owner, buyer, or prospect view; physical-good full reads may
 include curated `display_image` product media IDs. Buyer purchase flows use
 MCP `buy_d6n_listing` or `POST https://d6n.ai/buy` with a `buy` credential and

@@ -185,7 +185,7 @@ list_my_d6n_listings(limit=1)
 For a `buy` credential, prefer:
 
 ```text
-search_d6n_listings(q="", limit=1)
+browse_d6n_listings(limit=1)
 ```
 
 Expected: the call completes without an auth/configuration error. An empty list
@@ -231,7 +231,8 @@ marketplace search.
 
 Listing read/manage tools:
 
-- `search_d6n_listings(q, listing_type, tags_any, languages_any, amenities_any, price_cents_min, price_cents_max, currency, category, location_city, location_region, location_country, service_type, sort, mode, limit, cursor)`: public search view for discovery.
+- `browse_d6n_listings(listing_type, tags_any, languages_any, amenities_any, price_cents_min, price_cents_max, currency, category, location_city, location_region, location_country, service_type, sort, limit, cursor)`: public feed/discovery view. Use for "what can I buy", "what is available", or "show listings"; do not pass a natural-language query.
+- `search_d6n_listings(q, listing_type, tags_any, languages_any, amenities_any, price_cents_min, price_cents_max, currency, category, location_city, location_region, location_country, service_type, sort, mode, limit, cursor)`: targeted public search view. Use only when the user names or describes an item; `q` must be meaningful and non-empty.
 - `list_my_d6n_listings(limit=50)`: owner view for listings created by the authenticated user. Physical-good owner rows include `inventory_count`; physical-good `inventory_count=0` or a missing count means sold out and appears after available listings. Data-listing inventory is not applicable.
 - `get_d6n_listing(datum_id)`: owner view for the seller, buyer view for the purchaser, or prospect view for an authenticated non-purchaser on public listings.
 - `update_d6n_listing_details(datum_id, fields=None, price_usd=None, open_to_public=None, access_terms=None, product_url=None, seller_notes=None, inventory_count=None, condition=None, flat_rate_box=None, ship_from_name=None, ship_from_street=None, ship_from_city=None, ship_from_region=None, ship_from_postal_code=None, ship_from_country=None, brand=None, model=None, color=None, dimensions=None, weight=None, return_policy=None)`: update editable owner fields; requires `sell` scope and ownership. First read the owner view and use only `editable_fields`. `price_usd` converts to `price_cents`.
