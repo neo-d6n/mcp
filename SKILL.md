@@ -24,10 +24,6 @@ both. The six-digit code is not the final credential and is safe to ask for;
 the returned `auth_key` is the credential and must stay secret. Do not ask the
 user to paste credentials.
 
-In the backend, MCP tools are registered from `src/routers/d6n_mcp.py`. The
-browser/public HTTP proxy routes live in `src/routers/d6n_proxy.py`; A2A
-contractor execution is a separate internal-webserver path, not an MCP wrapper.
-
 Do not use any old OAuth URL, callback URL, or approval polling flow. The only
 agent authorization flow is: owner creates a six-digit code at
 `/aiauth/create`, agent claims it once at `/aiauth/claim/{code}`, then the
@@ -69,7 +65,7 @@ Build a stable `client_id`:
 - Codex: `Codex <project-name> <scope-label>`
 - Claude Code: `Claude Code <project-name> <scope-label>`
 
-D6N sanitizes this value server-side. Keep it short and readable.
+Keep this value short and readable.
 
 ### 2. Ask The Human For A D6N Agent Auth Code
 
@@ -203,21 +199,18 @@ Account/profile tool:
 
 Listing creation tools require `sell` scope:
 
-- `create_physical_good_listing(files=None, title=None, description=None, price_usd=None, condition=None, flat_rate_box=None, ship_from_name=None, ship_from_street=None, ship_from_city=None, ship_from_region=None, ship_from_postal_code=None, ship_from_country=None, inventory_count=None)`: create a physical-good listing from the gathered draft. MCP clients provide media as base64 `files`; `media_ids` are not accepted on MCP. External MCP/A2A callers receive the normal tool or HTTP contract and backend validation/auth errors.
+- `create_physical_good_listing(files=None, title=None, description=None, price_usd=None, condition=None, flat_rate_box=None, ship_from_name=None, ship_from_street=None, ship_from_city=None, ship_from_region=None, ship_from_postal_code=None, ship_from_country=None, inventory_count=None)`: create a physical-good listing from the gathered draft. MCP clients provide media as base64 `files`; `media_ids` are not accepted on MCP. Callers receive the declared response or validation/auth error.
 
 Every create-listing call must include `price_usd` as a decimal USD amount,
-for example `5.43`, or `0` for a free listing. D6N converts it to cents
-internally.
+for example `5.43`, or `0` for a free listing.
 For physical goods, include `inventory_count` when the seller gives on-hand
 quantity while creating the listing.
 
 Physical goods use D6N-managed shipping in this activation. New physical-good
-listings default to `shipping_mode="d6n"` server-side and must pass
+listings default to `shipping_mode="d6n"` and must pass
 `flat_rate_box` (`envelope`, `small`, `medium`, or `large`) plus a ship-from
-address (the `ship_from_*` fields). The backend `POST /datum` and
-`PUT /datum/{datum_id}` APIs own typed listing validation and persistence.
-External MCP/A2A callers receive the normal tool or HTTP contract and backend
-validation/auth errors.
+address (the `ship_from_*` fields). D6N validates listing-type fields and
+returns the declared response or validation/auth error.
 When a buyer purchases a physical good, the item-purchase challenge and response
 charge item + platform fee + outbound `shippingCents`. Sellers later generate
 that buyer-paid outbound label without another postage charge. Buyers purchase
@@ -238,7 +231,7 @@ Listing read/manage tools:
 - `update_d6n_listing_details(datum_id, fields=None, price_usd=None, open_to_public=None, access_terms=None, product_url=None, seller_notes=None, inventory_count=None, condition=None, flat_rate_box=None, ship_from_name=None, ship_from_street=None, ship_from_city=None, ship_from_region=None, ship_from_postal_code=None, ship_from_country=None, brand=None, model=None, color=None, dimensions=None, weight=None, return_policy=None)`: update editable owner fields; requires `sell` scope and ownership. First read the owner view and use only `editable_fields`. `price_usd` converts to `price_cents`.
 - `delete_d6n_listing(datum_id)`: permanently delete a listing owned by the authenticated user; requires `sell` scope and ownership.
 - `update_d6n_listing_media(datum_id, files, replace=False)`: append media to a seller-owned listing, or replace the complete media set when `replace=True`; requires `sell` scope and ownership. D6N re-runs extraction and rebuilds physical-good display images from product photos.
-- `retry_making_listing_public(datum_id)`: rerun failed D6N listing verifications for a hidden listing and make it public if the failures clear; if the backend says the listing is not ready to retry, edit listing details or media first. Requires `sell` scope and ownership.
+- `retry_making_listing_public(datum_id)`: rerun failed D6N listing verifications for a hidden listing and make it public if the failures clear; if D6N says the listing is not ready to retry, edit listing details or media first. Requires `sell` scope and ownership.
 - `buy_d6n_listing(datum_id, payment_credential=None, quantity=None, shipping_address=None, booking_start_time=None, booking_end_time=None, params=None)`: purchase a listing with a `buy` credential. External MCP/A2A clients pay with x402/MPP only: call once to receive the challenge, then retry with `payment_credential` after completing the machine-payment path. For shippable listings, pass a deliverable `shipping_address` with `name`, `street`, `city`, `region`, `country`, and `postal_code`; if omitted, D6N may use the OBO owner's saved profile shipping address, and if neither exists the payment attempt is rejected before any charge. D6N validates ship-to and ship-from before rating; an invalid address or unavailable live quote rejects the purchase before any payment challenge or charge. The challenge and final response include the total amount plus `itemCents`, `platformFeeCents`, and buyer-paid checkout `shippingCents`.
 - `request_order_return(order_id)`: request a return for a delivered physical-good purchase. It moves the order from `delivered` to `return_requested`; invalid states return the normal transition error. This is distinct from booking cancellation.
 
@@ -247,7 +240,7 @@ chat.d6n.ai and A2A: `shipping_mode` is not editable in this activation. Use
 `flat_rate_box` and the complete `ship_from_*` address to update label
 configuration. Package-size verification can hide a listing with owner-only
 `hide_reason.fails`; use `retry_making_listing_public` to rerun failed checks.
-If the backend says the listing is not ready to retry, edit listing details or
+If D6N says the listing is not ready to retry, edit listing details or
 media first.
 
 Order tools:
@@ -271,9 +264,8 @@ checkout-funded outbound labels are unwound through seller order cancellation.
 Order responses expose human-readable UTC time fields ending in `_str`.
 Prefer those fields when describing deadlines or order history to a user.
 MCP order tools request Unix timestamp fields alongside the `_str` fields for
-programmatic use. Order responses include `quantity`, the purchased item count
-used for physical-good inventory reservation and pre-shipment refund
-restoration. Use `status_str` for user-facing status and `status_hint`, when
+programmatic use. Order responses include `quantity`, the purchased item count.
+Use `status_str` for user-facing status and `status_hint`, when
 present, for the next-step explanation.
 D6N-managed labels use the shipping-label service. Sellers use
 `buy_d6n_shipping_label(order_id, direction="outbound")` for paid orders. The
@@ -282,30 +274,21 @@ does not charge the seller again. `cover_returns=True` charges the seller only
 for future return-label coverage, never outbound postage. Buyers use
 `buy_d6n_shipping_label(order_id, direction="return")` for return-requested
 orders and pay for that return label unless seller coverage exists. Progress
-tools infer buyer or seller from the authenticated token owner user id on the
-order. Before carrier acceptance, the seller can use
+tools determine buyer or seller from the approved credential. Before carrier
+acceptance, the seller can use
 `get_order_progress_requirements` and
 `send_order_progress_updates(to_state="cancelled")` from `paid` or
-`label_generated`; D6N immediately cancels the authorization or refunds the
-captured buyer payment and restores reserved inventory. A generated label is
-refunded with the provider independently; its actual postage cost remains
-deducted from the seller's D6N balance until the provider confirms the refund.
+`label_generated`; D6N refunds the buyer, restores inventory, and handles any
+generated label.
 The buyer cannot drive this seller transition. When an order is
 `return_label_sent`, buyers ship with the
 provided D6N label and carrier scans
-drive return progress. Do not ask buyers to report `return_tracking`. For physical goods,
-`return_shipped` and `return_to_sender` trigger the full buyer refund while
-processor fees and non-refunded Shippo labels remain platform losses. If
-`return_shipped` or `return_in_transit` has `refund_recorded=true`, tell the user
-the refund is processed and no buyer or seller action is needed right now. D6N
-polls `shipped`/`in_transit` and `return_shipped`/`return_in_transit` tracking on
-each SLA tick; delivered return scans close to `returned`, while failed return
-scans leave the order in `return_delivery_failed`.
-For physical-good item purchases, `paid` means the full item-plus-shipping
-payment is authorized and inventory is reserved. Generating the checkout-funded
-outbound provider label captures that authorization and moves the order to
-`label_generated`; the first carrier scan only advances fulfillment. The `paid`
-and `label_generated` pre-ship SLA share the same 48-hour deadline from `paid`.
+drive return progress. Do not ask buyers to report `return_tracking`. Prefer
+`status_hint` when explaining the current state or next action.
+For physical-good item purchases, `paid` means checkout succeeded and inventory
+is reserved. Generating the outbound label moves the order to
+`label_generated`. The `paid` and `label_generated` states share the same
+48-hour ship-by deadline from `paid`.
 
 D6N physical-good item checkout always includes outbound shipping in the
 buyer's invoice. MCP `buy_d6n_listing` and `POST https://d6n.ai/buy` complete
@@ -316,8 +299,8 @@ unless seller-funded coverage applies. External MCP/A2A payment credentials are
 used for item checkout, buyer return labels, and optional seller-funded return
 coverage; they are not used to charge outbound postage a second time.
 
-Use `datum_id` for listing IDs because the backend API still names the resource
-that way. For create tools, `files` is required for every listing type and
+Use `datum_id` as the listing identifier. For create tools, `files` is required
+for every listing type and
 should contain one or more objects like
 `{"filename":"example.pdf","file_base64":"..."}`. Do not use the old `session`
 or open-order tool names unless the server explicitly exposes them in the
@@ -328,11 +311,9 @@ the compact search view. `get_d6n_listing` returns a prospect, buyer, or owner v
 based on the authenticated caller. Owner views include `editable_fields`.
 Prospect views may include `search_fields`, a list of field names useful for a
 compact display digest; the values are already present on the payload.
-Physical-good `get_d6n_listing` owner/buyer/prospect reads may include `display_image`,
-a curated list of product photo/render media IDs. It is not a generic
-attachment list. Search omits attachments. Do not expect raw
-`tags`, `owner_id`, backend timestamps, physical-good `inventory_count`,
-or `seller_notes` in public, prospect, or buyer responses.
+Physical-good `get_d6n_listing` owner/buyer/prospect reads may include
+`display_image`, the curated product photos for the listing. Search omits
+attachments. Use only fields returned by the selected listing view.
 
 ## Reauthorize
 
