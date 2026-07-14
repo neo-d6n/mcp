@@ -48,13 +48,16 @@ The public agent contract in `https://d6n.ai/.well-known/agent.yml` and
 `https://d6n.ai/llms.txt` is the source of truth. `SKILL.md` implements the
 same human approval flow as an optional shortcut. After setup, the current MCP
 surface supports listing search/create/manage, buyer purchase history, seller
-sales history, buyer order returns, shipping-label purchase/refund, and seller order fulfillment. Physical-good
+sales history, buyer order returns, outbound-label generation, return-label
+purchase/refund, and seller order fulfillment. Physical-good
 listings use D6N-managed shipping in this activation: create calls default to
 `shipping_mode=d6n`, require `flat_rate_box` and a complete `ship_from_*`
 address, and item checkout charges item + platform fee + checkout shipping.
 The backend create/update listing APIs own typed listing validation and
 persistence. External MCP/A2A callers receive the normal tool or HTTP contract
-and backend validation/auth errors. Carrier labels are separate shipping-label service purchases. Physical-good create calls may include `inventory_count` when
+and backend validation/auth errors. Every physical-good item checkout includes
+outbound shipping in the buyer invoice. The seller later generates that paid
+label without another postage charge. Physical-good create calls may include `inventory_count` when
 the seller gives on-hand quantity. Owner listing lists include physical-good
 `inventory_count`; physical-good `inventory_count=0` or a missing count means
 sold out and appears after available listings. Data-listing inventory is not
@@ -77,22 +80,26 @@ saved D6N payment profile; saved-profile payment requires a first-party human
 checkout flow with explicit review and confirmation. Shippable purchases require a
 ship-to address with `name`, `street`, `city`, `region`, `country`, and
 `postal_code`, unless D6N can use the OBO owner's saved profile shipping address
-as a read-only fallback. If D6N cannot get a live shipping quote for that
-address, the purchase is rejected before any payment challenge or charge. The
+as a read-only fallback. D6N validates ship-to and ship-from before rating. An
+invalid address or unavailable live quote rejects the purchase before any
+payment challenge or charge. The
 x402/MPP challenge and final buy response include the total amount plus
-`itemCents`, `platformFeeCents`, and buyer-paid checkout `shippingCents`. Shipping labels use
+`itemCents`, `platformFeeCents`, and buyer-paid outbound `shippingCents`.
+Standard outbound label generation consumes that checkout allocation. Labels use
 `buy_d6n_shipping_label`, `list_d6n_shipping_labels`, and
 `refund_d6n_shipping_label`. Sellers may pass `cover_returns=true` only on
-outbound labels to prepay buyer return coverage. Shipping-label invoices expose
-shipping label, optional return coverage, combined 3% platform fee, and total;
-internally the fee is tracked per label component so unused seller return
-coverage refunds include the return-coverage fee. Carrier/provider cost stays
-internal.
+outbound generation to pay only for future buyer return coverage. After a
+return request, the buyer purchases the return label unless that seller-funded
+coverage applies. Return-label invoices expose shipping label, platform fee,
+and total; seller-funded coverage exposes return coverage and its platform fee.
+Carrier/provider cost stays internal. Direct label refunds apply only to
+separately purchased return labels; checkout-funded outbound labels are unwound
+through seller order cancellation.
 Buyer purchase history uses `list_d6n_purchases`; seller sales history uses
 `list_d6n_sales`. Delivered physical-good purchases can request a return with
 `request_order_return`, which moves the order to `return_requested`; the buyer
-then gets a return label with `buy_d6n_shipping_label(direction="return")`.
-If seller coverage exists, this creates the label without buyer checkout.
+then purchases a return label with `buy_d6n_shipping_label(direction="return")`.
+If seller coverage exists, this creates the label without charging the buyer.
 Invalid states return the normal transition error. Order responses
 include `status_str` for user-facing status labels such as `Return Requested`
 and `Cancelled`, and may include `status_hint` for user-facing next steps.
@@ -102,7 +109,15 @@ for the authenticated caller: `username`, `email_verified`, and `token_scope`
 when the bearer credential is an OBO token. Guest credentials return only
 `is_anonymous_guest=true` and the guest account note.
 Progress tools infer buyer or seller from the authenticated token owner user id
-on the order. When an order is `return_label_sent`, buyers ship with the
+on the order. Before carrier acceptance, the seller can use
+`get_order_progress_requirements` and
+`send_order_progress_updates(to_state="cancelled")` from `paid` or
+`label_generated`. D6N immediately cancels the authorization or refunds the
+captured buyer payment and restores reserved inventory. A generated label is
+refunded with the provider independently; its actual postage cost remains
+deducted from the seller's D6N balance until the provider confirms the refund.
+The buyer cannot drive this seller transition. When an
+order is `return_label_sent`, buyers ship with the
 provided D6N return label and carrier scans drive return progress. Do not ask
 buyers to report `return_tracking`. For physical goods, `return_shipped` and
 `return_to_sender` trigger the full buyer refund while processor fees and
@@ -112,11 +127,11 @@ processed and no buyer or seller action is needed right now. D6N polls
 `shipped`/`in_transit` and `return_shipped`/`return_in_transit` tracking on each
 SLA tick; delivered return scans close to `returned`, while failed return scans
 leave the order in `return_delivery_failed`.
-For physical-good item purchases, `paid` can mean the buyer payment is
-authorized and inventory reserved; D6N captures that item payment only when the
-outbound carrier first scans the package. The `paid` and `label_generated`
-pre-ship SLA share the same 48-hour deadline from `paid`; if it cancels before
-shipment, D6N cancels the authorization and restores reserved inventory.
+For physical-good item purchases, `paid` means the full item-plus-shipping
+payment is authorized and inventory is reserved. Generating the checkout-funded
+outbound provider label captures that authorization and moves the order to
+`label_generated`; the first carrier scan only advances fulfillment. The `paid`
+and `label_generated` pre-ship SLA share the same 48-hour deadline from `paid`.
 
 The skill detects whether it is running under Codex or Claude Code and writes to the matching MCP config:
 
