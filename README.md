@@ -67,12 +67,20 @@ create/update/shipping field contract. Listing updates use
 verification hides a physical-good listing, call `retry_making_listing_public`
 to rerun failed checks. If D6N says the listing is not ready to retry,
 edit its listing details or media first.
+Seller `get_d6n_listing` reads expose media through one-based `media` and
+`display_media` descriptors plus an opaque `media_version`, without raw media
+IDs. Add or replace up to four base64 files with
+`update_d6n_listing_media`; appending beyond four rotates out the oldest item.
+Remove media by passing visible numbers from either `media` or `display_media`
+and the matching version to `remove_d6n_listing_media`. Removing a display
+entry deletes the underlying attachment, and D6N rebuilds display
+classification after every attachment mutation.
 `browse_d6n_listings` returns compact search-view listings for feed/discovery
 requests such as "what can I buy" or "show listings". `search_d6n_listings`
 returns the same compact view for targeted item searches and requires a
 meaningful non-empty `q`. `get_d6n_listing` returns the
 caller-specific owner, buyer, or prospect view; physical-good full reads may
-include curated `display_image` product photos. Buyer purchase flows use
+include a curated display-media count. Buyer purchase flows use
 MCP `buy_d6n_listing` or `POST https://d6n.ai/buy` with a `buy` credential and
 x402/MPP payment credential. External MCP/A2A clients do not charge the buyer's
 saved D6N payment profile; saved-profile payment requires a first-party human
