@@ -227,11 +227,11 @@ Listing read/manage tools:
 - `browse_d6n_listings(listing_type, tags_any, languages_any, amenities_any, price_cents_min, price_cents_max, currency, category, location_city, location_region, location_country, service_type, sort, limit, cursor)`: public feed/discovery view. Use for "what can I buy", "what is available", or "show listings"; do not pass a natural-language query.
 - `search_d6n_listings(q, listing_type, tags_any, languages_any, amenities_any, price_cents_min, price_cents_max, currency, category, location_city, location_region, location_country, service_type, sort, mode, limit, cursor)`: targeted public search view. Use only when the user names or describes an item; `q` must be meaningful and non-empty.
 - `list_my_d6n_listings(limit=50)`: owner view for listings created by the authenticated user. Physical-good owner rows include `inventory_count`; physical-good `inventory_count=0` or a missing count means sold out and appears after available listings. Data-listing inventory is not applicable.
-- `get_d6n_listing(datum_id)`: owner view for the seller, buyer view for the purchaser, or prospect view for an authenticated non-purchaser on public listings.
+- `get_d6n_listing(datum_id)`: owner view for the seller, buyer view for the purchaser, or prospect view for an authenticated non-purchaser on public listings. The caller-scoped response sets `is_owner=true` only for the seller; never buy that listing.
 - `update_d6n_listing_details(datum_id, fields=None, price_usd=None, open_to_public=None, access_terms=None, product_url=None, seller_notes=None, inventory_count=None, condition=None, flat_rate_box=None, ship_from_name=None, ship_from_street=None, ship_from_city=None, ship_from_region=None, ship_from_postal_code=None, ship_from_country=None, brand=None, model=None, color=None, dimensions=None, weight=None, return_policy=None)`: update editable owner fields; requires `sell` scope and ownership. First read the owner view and use only `editable_fields`. `price_usd` converts to `price_cents`.
 - `delete_d6n_listing(datum_id)`: permanently delete a listing owned by the authenticated user; requires `sell` scope and ownership.
 - `update_d6n_listing_media(datum_id, files, replace=False)`: append base64 files to a seller-owned listing, or replace the complete media set when `replace=True`; requires `sell` scope and ownership. Listings hold at most four media items, and add rotates out the oldest item when necessary. D6N re-runs extraction and rebuilds physical-good display images from product photos.
-- `remove_d6n_listing_media(datum_id, media_version, media_numbers=None, display_media_numbers=None)`: remove one or more items by visible one-based numbers in the seller's `media` and/or `display_media` arrays. Deleting a display entry deletes its underlying general media. Pass the opaque `media_version` from the same read; refresh with `get_d6n_listing` after a stale-version response. Requires `sell` scope and ownership.
+- `remove_d6n_listing_media(datum_id, media_version, media_numbers=None, display_media_numbers=None)`: delete one or more items by visible one-based numbers in the seller's exclusive `media` and/or `display_media` arrays. Deletion from either array deletes that media; only general-media deletion runs display classification. Pass the opaque `media_version` from the same read; refresh with `get_d6n_listing` after a stale-version response. Requires `sell` scope and ownership.
 - `retry_making_listing_public(datum_id)`: rerun failed D6N listing verifications for a hidden listing and make it public if the failures clear; if D6N says the listing is not ready to retry, edit listing details or media first. Requires `sell` scope and ownership.
 - `buy_d6n_listing(datum_id, payment_credential=None, quantity=None, shipping_address=None, booking_start_time=None, booking_end_time=None, params=None)`: purchase a listing with a `buy` credential. External MCP/A2A clients pay with x402/MPP only: call once to receive the challenge, then retry with `payment_credential` after completing the machine-payment path. For shippable listings, pass a deliverable `shipping_address` with `name`, `street`, `city`, `region`, `country`, and `postal_code`; if omitted, D6N may use the OBO owner's saved profile shipping address, and if neither exists the payment attempt is rejected before any charge. D6N validates ship-to and ship-from before rating; an invalid address or unavailable live quote rejects the purchase before any payment challenge or charge. The challenge and final response include the total amount plus `itemCents`, `platformFeeCents`, and buyer-paid checkout `shippingCents`.
 - `request_order_return(order_id)`: request a return for a delivered physical-good purchase. It moves the order from `delivered` to `return_requested`; invalid states return the normal transition error. This is distinct from booking cancellation.
@@ -310,6 +310,8 @@ active MCP tool list.
 Listing responses are intentionally read-mode specific. Public search returns
 the compact search view. `get_d6n_listing` returns a prospect, buyer, or owner view
 based on the authenticated caller. Owner views include `editable_fields`.
+Caller-scoped views include `is_owner`; when it is `true`, do not offer or
+attempt a purchase of that listing.
 Prospect views may include `search_fields`, a list of field names useful for a
 compact display digest; the values are already present on the payload.
 Physical-good full reads may include a curated display-media count. Search
@@ -317,10 +319,9 @@ omits attachments. Use only fields returned by the selected listing view.
 Seller owner reads may also include ordered, one-based `media` and
 `display_media` descriptor arrays plus an opaque `media_version`. These arrays
 do not contain raw media IDs. Use numbers from either array with
-`remove_d6n_listing_media`; deleting a display entry deletes its underlying
-attachment. MCP accepts base64 files, not media IDs, for add or replace
-operations. D6N rebuilds display classification after every attachment
-mutation.
+`remove_d6n_listing_media`. The arrays are exclusive, and deletion from either
+array deletes that media. MCP accepts base64 files, not media IDs, for add or
+replace operations. Only general-media writes run display classification.
 
 ## Reauthorize
 

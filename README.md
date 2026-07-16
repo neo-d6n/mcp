@@ -72,14 +72,15 @@ Seller `get_d6n_listing` reads expose media through one-based `media` and
 IDs. Add or replace up to four base64 files with
 `update_d6n_listing_media`; appending beyond four rotates out the oldest item.
 Remove media by passing visible numbers from either `media` or `display_media`
-and the matching version to `remove_d6n_listing_media`. Removing a display
-entry deletes the underlying attachment, and D6N rebuilds display
-classification after every attachment mutation.
+and the matching version to `remove_d6n_listing_media`. The arrays are
+exclusive. Deletion from either array deletes that media; only general-media
+writes run display classification.
 `browse_d6n_listings` returns compact search-view listings for feed/discovery
 requests such as "what can I buy" or "show listings". `search_d6n_listings`
 returns the same compact view for targeted item searches and requires a
 meaningful non-empty `q`. `get_d6n_listing` returns the
-caller-specific owner, buyer, or prospect view; physical-good full reads may
+caller-specific owner, buyer, or prospect view with `is_owner=true` only for
+the owner; physical-good full reads may
 include a curated display-media count. Buyer purchase flows use
 MCP `buy_d6n_listing` or `POST https://d6n.ai/buy` with a `buy` credential and
 x402/MPP payment credential. External MCP/A2A clients do not charge the buyer's
