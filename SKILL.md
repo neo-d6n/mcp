@@ -214,12 +214,11 @@ at least `1.00`, for example `5.43`.
 For physical goods, include `inventory_count` when the seller gives on-hand
 quantity while creating the listing.
 
-Physical goods use D6N-managed shipping in this activation. New physical-good
-listings default to `outbound_shipping_mode="d6n"` and must pass
+New physical-good listings default to `outbound_shipping_mode="d6n"` and must pass
 `flat_rate_box` (`envelope`, `small`, `medium`, or `large`) plus a ship-from
 address (the `ship_from_*` fields). D6N validates listing-type fields and
 returns the declared response or validation/auth error.
-When a buyer purchases a physical good, the item-purchase challenge and response
+When a buyer purchases a D6N-shipped physical good, the item-purchase challenge and response
 charge item + platform fee + outbound `shippingCents`. Sellers later generate
 that buyer-paid outbound label without another postage charge. Buyers purchase
 return labels after requesting a return, unless the seller funded return
@@ -238,9 +237,9 @@ Listing read/manage tools:
 - `get_d6n_listing(datum_id, shop_share_id=None)`: Shop-scoped owner view for the seller, buyer view for the purchaser, or prospect view for an authenticated non-purchaser on public listings. The caller-scoped response sets `is_owner=true` only for the seller; never buy that listing.
 - `update_d6n_listing_details(datum_id, fields=None, shop_name=None, price_usd=None, open_to_public=None, access_terms=None, product_url=None, seller_notes=None, inventory_count=None, condition=None, brand=None, model=None, color=None, dimensions=None, weight=None)`: update editable owner fields; requires `sell` scope and ownership. First read the owner view and use only `editable_fields`. `shop_name` moves the listing only to another existing Shop owned by the seller; `price_usd` converts to `price_cents`.
 - `get_outbound_shipping_rule(datum_id)`: read the listing's outbound shipping rule. Physical-good listing reads do not embed this rule.
-- `get_inbound_shipping_rule(datum_id)`: read the listing's inbound shipping rule and existing return policy. Physical-good listing reads do not embed this rule.
-- `update_outbound_shipping_rule(datum_id, rule)`: update outbound mode and its mode-specific item size, ship-from address, flat fee, or minimum-sale threshold.
-- `update_inbound_shipping_rule(datum_id, rule)`: update return-shipping sponsorship/management and the existing return policy.
+- `get_inbound_shipping_rule(datum_id)`: read the listing's inbound shipping rule. Physical-good listing reads do not embed this rule.
+- `update_outbound_shipping_rule(datum_id, rule)`: set `rule.mode` to `d6n` with `item_size` plus `from_address`, or `seller` with `from_address`.
+- `update_inbound_shipping_rule(datum_id, rule)`: set `rule.mode` to `buyer_pays` or `seller_pays`. The listing's independent return policy is not part of this rule.
 - `delete_d6n_listing(datum_id)`: permanently delete a listing owned by the authenticated user; requires `sell` scope and ownership.
 - `update_d6n_listing_media(datum_id, files, replace=False)`: append base64 files to a seller-owned listing, or replace the complete media set when `replace=True`; requires `sell` scope and ownership. Listings hold at most four media items, and add rotates out the oldest item when necessary. D6N re-runs extraction and rebuilds physical-good display images from product photos.
 - `remove_d6n_listing_media(datum_id, media_version, media_numbers=None, display_media_numbers=None)`: delete one or more items by visible one-based numbers in the seller's exclusive `media` and/or `display_media` arrays. Deletion from either array deletes that media; only general-media deletion runs display classification. Pass the opaque `media_version` from the same read; refresh with `get_d6n_listing` after a stale-version response. Requires `sell` scope and ownership.
@@ -256,7 +255,8 @@ Shop.
 
 Physical-good listing reads omit shipping rules. Read them with
 `get_outbound_shipping_rule` and `get_inbound_shipping_rule`, then use the
-matching update tool across MCP, A2A, and chat.d6n.ai. Package-size verification
+matching update tool across MCP, A2A, and chat.d6n.ai. Outbound mode is `d6n`
+or `seller`; inbound mode is `buyer_pays` or `seller_pays`. Package-size verification
 can hide a listing with owner-only
 `hide_reason.fails`; use `retry_making_listing_public` to rerun failed checks.
 If D6N says the listing is not ready to retry, edit listing details or
@@ -309,9 +309,10 @@ is reserved. Generating the outbound label moves the order to
 `label_generated`. The `paid` and `label_generated` states share the same
 48-hour ship-by deadline from `paid`.
 
-D6N physical-good item checkout always includes outbound shipping in the
-buyer's invoice. MCP `buy_d6n_listing` and `POST https://d6n.ai/buy` complete
-that checkout. MCP `buy_d6n_shipping_label(direction="outbound")` and
+D6N-shipped physical-good checkout includes outbound shipping in the buyer's
+invoice; seller-shipped checkout does not include a D6N postage charge. MCP
+`buy_d6n_listing` and `POST https://d6n.ai/buy` complete that checkout. MCP
+`buy_d6n_shipping_label(direction="outbound")` and
 `POST https://d6n.ai/buy/shipping` generate the seller's already-paid outbound
 label. Direction `return` purchases buyer return postage after a return request,
 unless seller-funded coverage applies. External MCP/A2A payment credentials are
