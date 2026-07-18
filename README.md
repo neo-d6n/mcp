@@ -47,11 +47,11 @@ https://mcp.d6n.ai/mcp
 The public agent contract in `https://d6n.ai/.well-known/agent.yml` and
 `https://d6n.ai/llms.txt` is the source of truth. `SKILL.md` implements the
 same human approval flow as an optional shortcut. After setup, the current MCP
-surface supports listing search/create/manage, buyer purchase history, seller
+surface supports Shop selection/management, listing search/create/manage, buyer purchase history, seller
 sales history, buyer order returns, outbound-label generation, return-label
 purchase/refund, and seller order fulfillment. Physical-good
-listings use D6N-managed shipping in this activation: create calls default to
-`shipping_mode=d6n`, require `flat_rate_box` and a complete `ship_from_*`
+listings default to D6N-managed shipping: create calls default to
+`outbound_shipping_mode=d6n`, require `flat_rate_box` and a complete `ship_from_*`
 address, and item checkout charges item + platform fee + checkout shipping.
 D6N validates listing-type fields on create and update calls. Callers receive
 the declared response or validation/auth error. Every physical-good item checkout includes
@@ -63,10 +63,17 @@ sold out and appears after available listings. Data-listing inventory is not
 applicable. See `SKILL.md` and `llms.txt` for the full
 create/update/shipping field contract. Listing updates use
 `update_d6n_listing_details` and the owner view's `editable_fields` list;
-`shipping_mode` is not editable in this activation. If package-size
+`shop_name` moves an owned listing to another existing Shop owned by that seller;
+physical-good listing reads omit shipping rules. Read them with
+`get_outbound_shipping_rule` and `get_inbound_shipping_rule`, then use
+`update_outbound_shipping_rule` or `update_inbound_shipping_rule`. If package-size
 verification hides a physical-good listing, call `retry_making_listing_public`
 to rerun failed checks. If D6N says the listing is not ready to retry,
 edit its listing details or media first.
+Every listing create explicitly names an existing seller-owned Shop; current
+browse state is never used as the listing destination. MCP exposes
+`switch_d6n_shop`, `create_d6n_shop`, `list_my_d6n_shops`, `get_d6n_shop`, and
+`update_d6n_shop`. Shop deletion remains a verified-owner profile/HTTP action.
 Seller `get_d6n_listing` reads expose media through one-based `media` and
 `display_media` descriptors plus an opaque `media_version`, without raw media
 IDs. Add or replace up to four base64 files with
@@ -75,12 +82,16 @@ Remove media by passing visible numbers from either `media` or `display_media`
 and the matching version to `remove_d6n_listing_media`. The arrays are
 exclusive. Deletion from either array deletes that media; only general-media
 writes run display classification.
-`browse_d6n_listings` returns compact search-view listings for feed/discovery
-requests such as "what can I buy" or "show listings". `search_d6n_listings`
-returns the same compact view for targeted item searches and requires a
-meaningful non-empty `q`. `get_d6n_listing` returns the
-caller-specific owner, buyer, or prospect view with `is_owner=true` only for
-the owner; physical-good full reads may
+`browse_d6n_listings`, `search_d6n_listings`, and `get_d6n_listing` accept an
+optional canonical `shop_share_id`. An explicit value scopes that call and
+takes precedence; when omitted, the tools use the current Shop selected by
+`switch_d6n_shop`. If neither is available for a non-founder listing read,
+select a Shop first. Explicit per-call selection does not replace the current
+Shop. Browse returns compact search-view listings for feed/discovery
+requests such as "what can I buy" or "show listings". Search returns the same
+Shop-scoped view for targeted item searches and requires a meaningful non-empty
+`q`. Individual reads return the caller-specific owner, buyer, or Shop-scoped
+prospect view with `is_owner=true` only for the owner; physical-good full reads may
 include a curated display-media count. Buyer purchase flows use
 MCP `buy_d6n_listing` or `POST https://d6n.ai/buy` with a `buy` credential and
 x402/MPP payment credential. External MCP/A2A clients do not charge the buyer's

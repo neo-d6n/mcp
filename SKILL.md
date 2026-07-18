@@ -171,17 +171,10 @@ claude mcp list
 claude mcp get d6n
 ```
 
-Then ask the agent to call a read-only D6N MCP tool. For a `sell` or
-`buy sell` credential, prefer:
+Then ask the agent to call the read-only account tool:
 
 ```text
-list_my_d6n_listings(limit=1)
-```
-
-For a `buy` credential, prefer:
-
-```text
-browse_d6n_listings(limit=1)
+profile_info()
 ```
 
 Expected: the call completes without an auth/configuration error. An empty list
@@ -197,17 +190,32 @@ Account/profile tool:
 
 - `profile_info()`: return minimal D6N account info for the authenticated caller. Guests return `is_anonymous_guest=true` plus a note; authenticated users return `username`, `email_verified`, and `token_scope` when the bearer credential is an OBO token.
 
+Shop tools:
+
+- `switch_d6n_shop(shop_name)`: switch this MCP session to a public Shop by
+  display name or canonical period-separated name. Later listing reads use it
+  when they omit `shop_share_id`.
+- `create_d6n_shop(shop_name, description)`: create a seller-owned Shop;
+  requires `sell` scope and a verified owner account.
+- `list_my_d6n_shops(limit=50)`: list Shops owned by the represented seller.
+- `get_d6n_shop(shop_name)`: read one Shop by display or canonical name.
+- `update_d6n_shop(share_id, shop_name=None, description=None)`: update an
+  owned Shop with `sell` scope.
+
+Shop deletion is intentionally not an MCP/A2A tool. A verified owner deletes
+through the D6N profile/HTTP flow, and a Shop with listings cannot be deleted.
+
 Listing creation tools require `sell` scope:
 
-- `create_physical_good_listing(files=None, title=None, description=None, price_usd=None, condition=None, flat_rate_box=None, ship_from_name=None, ship_from_street=None, ship_from_city=None, ship_from_region=None, ship_from_postal_code=None, ship_from_country=None, inventory_count=None)`: create a physical-good listing from the gathered draft. MCP clients provide media as base64 `files`; `media_ids` are not accepted on MCP. Callers receive the declared response or validation/auth error.
+- `create_physical_good_listing(files, shop_name, title=None, description=None, price_usd=None, condition=None, flat_rate_box=None, ship_from_name=None, ship_from_street=None, ship_from_city=None, ship_from_region=None, ship_from_postal_code=None, ship_from_country=None, inventory_count=None)`: create a physical-good listing in the explicitly named existing seller-owned Shop. MCP clients provide media as base64 `files`; `media_ids` are not accepted on MCP. Never infer `shop_name` from the current Shop session.
 
-Every create-listing call must include `price_usd` as a decimal USD amount,
-for example `5.43`, or `0` for a free listing.
+Every create-listing call must include `price_usd` as a decimal USD amount of
+at least `1.00`, for example `5.43`.
 For physical goods, include `inventory_count` when the seller gives on-hand
 quantity while creating the listing.
 
 Physical goods use D6N-managed shipping in this activation. New physical-good
-listings default to `shipping_mode="d6n"` and must pass
+listings default to `outbound_shipping_mode="d6n"` and must pass
 `flat_rate_box` (`envelope`, `small`, `medium`, or `large`) plus a ship-from
 address (the `ship_from_*` fields). D6N validates listing-type fields and
 returns the declared response or validation/auth error.
@@ -224,11 +232,15 @@ marketplace search.
 
 Listing read/manage tools:
 
-- `browse_d6n_listings(listing_type, tags_any, languages_any, amenities_any, price_cents_min, price_cents_max, currency, category, location_city, location_region, location_country, service_type, sort, limit, cursor)`: public feed/discovery view. Use for "what can I buy", "what is available", or "show listings"; do not pass a natural-language query.
-- `search_d6n_listings(q, listing_type, tags_any, languages_any, amenities_any, price_cents_min, price_cents_max, currency, category, location_city, location_region, location_country, service_type, sort, mode, limit, cursor)`: targeted public search view. Use only when the user names or describes an item; `q` must be meaningful and non-empty.
+- `browse_d6n_listings(shop_share_id=None, listing_type=None, tags_any=None, languages_any=None, amenities_any=None, price_cents_min=None, price_cents_max=None, currency=None, category=None, location_city=None, location_region=None, location_country=None, service_type=None, sort="newest", limit=20, cursor=None)`: Shop-scoped feed/discovery view. Use for "what can I buy", "what is available", or "show listings" and do not pass a natural-language query.
+- `search_d6n_listings(q, shop_share_id=None, listing_type=None, tags_any=None, languages_any=None, amenities_any=None, price_cents_min=None, price_cents_max=None, currency=None, category=None, location_city=None, location_region=None, location_country=None, service_type=None, sort="relevance", mode="lexical", limit=20, cursor=None)`: targeted Shop-scoped search; `q` must be meaningful and non-empty.
 - `list_my_d6n_listings(limit=50)`: owner view for listings created by the authenticated user. Physical-good owner rows include `inventory_count`; physical-good `inventory_count=0` or a missing count means sold out and appears after available listings. Data-listing inventory is not applicable.
-- `get_d6n_listing(datum_id)`: owner view for the seller, buyer view for the purchaser, or prospect view for an authenticated non-purchaser on public listings. The caller-scoped response sets `is_owner=true` only for the seller; never buy that listing.
-- `update_d6n_listing_details(datum_id, fields=None, price_usd=None, open_to_public=None, access_terms=None, product_url=None, seller_notes=None, inventory_count=None, condition=None, flat_rate_box=None, ship_from_name=None, ship_from_street=None, ship_from_city=None, ship_from_region=None, ship_from_postal_code=None, ship_from_country=None, brand=None, model=None, color=None, dimensions=None, weight=None, return_policy=None)`: update editable owner fields; requires `sell` scope and ownership. First read the owner view and use only `editable_fields`. `price_usd` converts to `price_cents`.
+- `get_d6n_listing(datum_id, shop_share_id=None)`: Shop-scoped owner view for the seller, buyer view for the purchaser, or prospect view for an authenticated non-purchaser on public listings. The caller-scoped response sets `is_owner=true` only for the seller; never buy that listing.
+- `update_d6n_listing_details(datum_id, fields=None, shop_name=None, price_usd=None, open_to_public=None, access_terms=None, product_url=None, seller_notes=None, inventory_count=None, condition=None, brand=None, model=None, color=None, dimensions=None, weight=None)`: update editable owner fields; requires `sell` scope and ownership. First read the owner view and use only `editable_fields`. `shop_name` moves the listing only to another existing Shop owned by the seller; `price_usd` converts to `price_cents`.
+- `get_outbound_shipping_rule(datum_id)`: read the listing's outbound shipping rule. Physical-good listing reads do not embed this rule.
+- `get_inbound_shipping_rule(datum_id)`: read the listing's inbound shipping rule and existing return policy. Physical-good listing reads do not embed this rule.
+- `update_outbound_shipping_rule(datum_id, rule)`: update outbound mode and its mode-specific item size, ship-from address, flat fee, or minimum-sale threshold.
+- `update_inbound_shipping_rule(datum_id, rule)`: update return-shipping sponsorship/management and the existing return policy.
 - `delete_d6n_listing(datum_id)`: permanently delete a listing owned by the authenticated user; requires `sell` scope and ownership.
 - `update_d6n_listing_media(datum_id, files, replace=False)`: append base64 files to a seller-owned listing, or replace the complete media set when `replace=True`; requires `sell` scope and ownership. Listings hold at most four media items, and add rotates out the oldest item when necessary. D6N re-runs extraction and rebuilds physical-good display images from product photos.
 - `remove_d6n_listing_media(datum_id, media_version, media_numbers=None, display_media_numbers=None)`: delete one or more items by visible one-based numbers in the seller's exclusive `media` and/or `display_media` arrays. Deletion from either array deletes that media; only general-media deletion runs display classification. Pass the opaque `media_version` from the same read; refresh with `get_d6n_listing` after a stale-version response. Requires `sell` scope and ownership.
@@ -236,10 +248,16 @@ Listing read/manage tools:
 - `buy_d6n_listing(datum_id, payment_credential=None, quantity=None, shipping_address=None, booking_start_time=None, booking_end_time=None, params=None)`: purchase a listing with a `buy` credential. External MCP/A2A clients pay with x402/MPP only: call once to receive the challenge, then retry with `payment_credential` after completing the machine-payment path. For shippable listings, pass a deliverable `shipping_address` with `name`, `street`, `city`, `region`, `country`, and `postal_code`; if omitted, D6N may use the OBO owner's saved profile shipping address, and if neither exists the payment attempt is rejected before any charge. D6N validates ship-to and ship-from before rating; an invalid address or unavailable live quote rejects the purchase before any payment challenge or charge. The challenge and final response include the total amount plus `itemCents`, `platformFeeCents`, and buyer-paid checkout `shippingCents`.
 - `request_order_return(order_id)`: request a return for a delivered physical-good purchase. It moves the order from `delivered` to `return_requested`; invalid states return the normal transition error. This is distinct from booking cancellation.
 
-Physical-good listing updates have the same D6N-managed shipping rules as
-chat.d6n.ai and A2A: `shipping_mode` is not editable in this activation. Use
-`flat_rate_box` and the complete `ship_from_*` address to update label
-configuration. Package-size verification can hide a listing with owner-only
+For browse, search, and individual listing reads, an explicit canonical `shop_share_id`
+scopes that call and takes precedence. When it is omitted, the tool uses the
+current Shop selected by `switch_d6n_shop`; if neither is available, select a
+Shop first. Passing `shop_share_id` for one call does not replace the current
+Shop.
+
+Physical-good listing reads omit shipping rules. Read them with
+`get_outbound_shipping_rule` and `get_inbound_shipping_rule`, then use the
+matching update tool across MCP, A2A, and chat.d6n.ai. Package-size verification
+can hide a listing with owner-only
 `hide_reason.fails`; use `retry_making_listing_public` to rerun failed checks.
 If D6N says the listing is not ready to retry, edit listing details or
 media first.
