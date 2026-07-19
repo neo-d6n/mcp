@@ -50,8 +50,8 @@ same human approval flow as an optional shortcut. After setup, the current MCP
 surface supports Shop selection/management, listing search/create/manage, buyer purchase history, seller
 sales history, buyer order returns, outbound-label generation, return-label
 purchase/refund, and seller order fulfillment. Physical-good
-listings default to D6N-managed shipping: create calls default to
-`outbound_shipping_mode=d6n`, require `flat_rate_box` and a complete `ship_from_*`
+listings default to buyer shipping: create calls default to
+`outbound_shipping_mode=buyer`, require `flat_rate_box` and a complete `ship_from_*`
 address, and D6N-shipped checkout charges item + platform fee + checkout shipping.
 D6N validates listing-type fields on create and update calls. Callers receive
 the declared response or validation/auth error. Seller-shipped checkout does not
@@ -66,8 +66,10 @@ create/update/shipping field contract. Listing updates use
 `shop_name` moves an owned listing to another existing Shop owned by that seller;
 physical-good listing reads omit shipping rules. Read them with
 `get_outbound_shipping_rule` and `get_inbound_shipping_rule`, then use
-`update_outbound_shipping_rule` with mode `d6n` or `seller`, or
-`update_inbound_shipping_rule` with mode `buyer_pays` or `seller_pays`.
+`update_outbound_shipping_rule` with mode `buyer` or `seller`, or
+`update_inbound_shipping_rule` with mode `buyer` or `seller`. Outbound rules
+may also set `seller_flat_shipping_fee` in cents plus the boolean
+`seller_provided_label`.
 The inbound rule does not include the listing's independent return policy. If package-size
 verification hides a physical-good listing, call `retry_making_listing_public`
 to rerun failed checks. If D6N says the listing is not ready to retry,
