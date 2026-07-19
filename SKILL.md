@@ -207,20 +207,21 @@ through the D6N profile/HTTP flow, and a Shop with listings cannot be deleted.
 
 Listing creation tools require `sell` scope:
 
-- `create_physical_good_listing(files, shop_name, title=None, description=None, price_usd=None, condition=None, flat_rate_box=None, ship_from_name=None, ship_from_street=None, ship_from_city=None, ship_from_region=None, ship_from_postal_code=None, ship_from_country=None, inventory_count=None)`: create a physical-good listing in the explicitly named existing seller-owned Shop. MCP clients provide media as base64 `files`; `media_ids` are not accepted on MCP. Never infer `shop_name` from the current Shop session.
+- `create_physical_good_listing(files, shop_name, title=None, description=None, price_usd=None, condition=None, outbound_shipping_mode=None, seller_provided_label=None, seller_flat_shipping_fee=None, inbound_shipping_mode=None, flat_rate_box=None, ship_from_name=None, ship_from_street=None, ship_from_city=None, ship_from_region=None, ship_from_postal_code=None, ship_from_country=None, inventory_count=None)`: create a physical-good listing in the explicitly named existing seller-owned Shop. MCP clients provide media as base64 `files`; `media_ids` are not accepted on MCP. Never infer `shop_name` from the current Shop session.
 
 Every create-listing call must include `price_usd` as a decimal USD amount of
 at least `1.00`, for example `5.43`.
 For physical goods, include `inventory_count` when the seller gives on-hand
 quantity while creating the listing.
 
-New physical-good listings default to `outbound_shipping_mode="buyer"` and must pass
-`flat_rate_box` (`envelope`, `small`, `medium`, or `large`) plus a ship-from
-address (the `ship_from_*` fields). D6N validates listing-type fields and
+New physical-good listings default to `outbound_shipping_mode="buyer"`.
+Outbound and inbound mode identify the payer. When `seller_provided_label` is
+false, pass `flat_rate_box` plus a complete ship-from address. When it is true,
+pass `seller_flat_shipping_fee` in cents. D6N validates listing-type fields and
 returns the declared response or validation/auth error.
-When a buyer purchases a D6N-shipped physical good, the item-purchase challenge and response
-charge item + platform fee + outbound `shippingCents`. Sellers later generate
-that buyer-paid outbound label without another postage charge. Buyers purchase
+When the outbound payer is the buyer, the item-purchase challenge and response
+charge item + platform fee + outbound `shippingCents`. Seller-paid shipping is
+omitted from buyer checkout. Buyers purchase
 return labels after requesting a return, unless the seller funded return
 coverage with `cover_returns=True` while generating the outbound label.
 MCP/A2A clients provide `shipping_address` up front or use the OBO owner's
@@ -238,7 +239,7 @@ Listing read/manage tools:
 - `update_d6n_listing_details(datum_id, fields=None, shop_name=None, price_usd=None, open_to_public=None, access_terms=None, product_url=None, seller_notes=None, inventory_count=None, condition=None, brand=None, model=None, color=None, dimensions=None, weight=None)`: update editable owner fields; requires `sell` scope and ownership. First read the owner view and use only `editable_fields`. `shop_name` moves the listing only to another existing Shop owned by the seller; `price_usd` converts to `price_cents`.
 - `get_outbound_shipping_rule(datum_id)`: read the listing's outbound shipping rule. Physical-good listing reads do not embed this rule.
 - `get_inbound_shipping_rule(datum_id)`: read the listing's inbound shipping rule. Physical-good listing reads do not embed this rule.
-- `update_outbound_shipping_rule(datum_id, rule)`: set `rule.mode` to `buyer` with `item_size` plus `from_address`, or `seller` with `from_address`. Optional outbound fields are `seller_provided_label` and `seller_flat_shipping_fee` (cents).
+- `update_outbound_shipping_rule(datum_id, rule)`: set payer `rule.mode` to `buyer` or `seller`. With `seller_provided_label=false`, include `item_size` and `from_address`; with `seller_provided_label=true`, include `seller_flat_shipping_fee` (cents).
 - `update_inbound_shipping_rule(datum_id, rule)`: set `rule.mode` to `buyer` or `seller`. The listing's independent return policy is not part of this rule.
 - `delete_d6n_listing(datum_id)`: permanently delete a listing owned by the authenticated user; requires `sell` scope and ownership.
 - `update_d6n_listing_media(datum_id, files, replace=False)`: append base64 files to a seller-owned listing, or replace the complete media set when `replace=True`; requires `sell` scope and ownership. Listings hold at most four media items, and add rotates out the oldest item when necessary. D6N re-runs extraction and rebuilds physical-good display images from product photos.
@@ -265,7 +266,8 @@ media first.
 Order tools:
 
 Shipping-label tools require `buy` or `sell` scope and an order-party match.
-Direction `outbound` generates the buyer-checkout-funded seller label;
+Direction `outbound` generates a D6N seller label when the listing is not
+configured for a seller-provided label; the outbound payer comes from the rule.
 direction `return` purchases a buyer return label unless seller coverage applies.
 `refund_d6n_shipping_label` applies only to separately purchased return labels;
 checkout-funded outbound labels are unwound through seller order cancellation.
@@ -286,18 +288,18 @@ MCP order tools request Unix timestamp fields alongside the `_str` fields for
 programmatic use. Order responses include `quantity`, the purchased item count.
 Use `status_str` for user-facing status and `status_hint`, when
 present, for the next-step explanation.
-D6N-managed labels use the shipping-label service. Sellers use
-`buy_d6n_shipping_label(order_id, direction="outbound")` for paid orders. The
-outbound label uses shipping already paid by the buyer in item checkout and
-does not charge the seller again. `cover_returns=True` charges the seller only
-for future return-label coverage, never outbound postage. Buyers use
+D6N-generated labels use the shipping-label service. Sellers use
+`buy_d6n_shipping_label(order_id, direction="outbound")` for eligible paid
+orders; any payment follows the configured outbound payer. For seller-provided
+labels, call `get_order_progress_requirements` and send its `label_uploaded`
+inputs, including label URL, carrier, and tracking number. Buyers use
 `buy_d6n_shipping_label(order_id, direction="return")` for return-requested
 orders and pay for that return label unless seller coverage exists. Progress
 tools determine buyer or seller from the approved credential. Before carrier
 acceptance, the seller can use
 `get_order_progress_requirements` and
-`send_order_progress_updates(to_state="cancelled")` from `paid` or
-`label_generated`; D6N refunds the buyer, restores inventory, and handles any
+`send_order_progress_updates(to_state="cancelled")` from `paid`,
+`label_generated`, or `label_uploaded`; D6N refunds the buyer, restores inventory, and handles any
 generated label.
 The buyer cannot drive this seller transition. When an order is
 `return_label_sent`, buyers ship with the
@@ -305,19 +307,19 @@ provided D6N label and carrier scans
 drive return progress. Do not ask buyers to report `return_tracking`. Prefer
 `status_hint` when explaining the current state or next action.
 For physical-good item purchases, `paid` means checkout succeeded and inventory
-is reserved. Generating the outbound label moves the order to
-`label_generated`. The `paid` and `label_generated` states share the same
-48-hour ship-by deadline from `paid`.
+is reserved. A D6N-generated outbound label moves the order to
+`label_generated`; a seller-provided label moves it to `label_uploaded`. All
+three pre-ship states share the same 48-hour ship-by deadline from `paid`.
 
-D6N-shipped physical-good checkout includes outbound shipping in the buyer's
-invoice; seller-shipped checkout does not include a D6N postage charge. MCP
-`buy_d6n_listing` and `POST https://d6n.ai/buy` complete that checkout. MCP
-`buy_d6n_shipping_label(direction="outbound")` and
-`POST https://d6n.ai/buy/shipping` generate the seller's already-paid outbound
-label. Direction `return` purchases buyer return postage after a return request,
+Buyer-paid physical-good checkout includes outbound `shippingCents`;
+seller-paid shipping is omitted from buyer checkout. MCP `buy_d6n_listing` and
+`POST https://d6n.ai/buy` complete that checkout. MCP
+`buy_d6n_shipping_label(direction="outbound")` generates D6N labels, while
+seller-provided labels use the order-progress tools. Direction `return`
+purchases buyer return postage after a return request,
 unless seller-funded coverage applies. External MCP/A2A payment credentials are
-used for item checkout, buyer return labels, and optional seller-funded return
-coverage; they are not used to charge outbound postage a second time.
+used for item checkout, seller-paid D6N outbound labels, buyer return labels,
+and optional seller-funded return coverage.
 
 Use `datum_id` as the listing identifier. For create tools, `files` is required
 for every listing type and

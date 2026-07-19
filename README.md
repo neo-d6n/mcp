@@ -50,13 +50,13 @@ same human approval flow as an optional shortcut. After setup, the current MCP
 surface supports Shop selection/management, listing search/create/manage, buyer purchase history, seller
 sales history, buyer order returns, outbound-label generation, return-label
 purchase/refund, and seller order fulfillment. Physical-good
-listings default to buyer shipping: create calls default to
-`outbound_shipping_mode=buyer`, require `flat_rate_box` and a complete `ship_from_*`
-address, and D6N-shipped checkout charges item + platform fee + checkout shipping.
+listings default to buyer-paid shipping. Outbound and inbound mode identify the
+payer. D6N-generated labels require `flat_rate_box` and a complete
+`ship_from_*` address; seller-provided labels require
+`seller_flat_shipping_fee`.
 D6N validates listing-type fields on create and update calls. Callers receive
-the declared response or validation/auth error. Seller-shipped checkout does not
-include a D6N postage charge. For D6N-shipped orders, the seller later generates
-that paid label without another postage charge. Physical-good create calls may include `inventory_count` when
+the declared response or validation/auth error. Seller-paid shipping does not
+appear in buyer checkout. Physical-good create calls may include `inventory_count` when
 the seller gives on-hand quantity. Owner listing lists include physical-good
 `inventory_count`; physical-good `inventory_count=0` or a missing count means
 sold out and appears after available listings. Data-listing inventory is not
@@ -68,8 +68,8 @@ physical-good listing reads omit shipping rules. Read them with
 `get_outbound_shipping_rule` and `get_inbound_shipping_rule`, then use
 `update_outbound_shipping_rule` with mode `buyer` or `seller`, or
 `update_inbound_shipping_rule` with mode `buyer` or `seller`. Outbound rules
-may also set `seller_flat_shipping_fee` in cents plus the boolean
-`seller_provided_label`.
+require `item_size` and `from_address` when `seller_provided_label=false`, or
+`seller_flat_shipping_fee` when it is true.
 The inbound rule does not include the listing's independent return policy. If package-size
 verification hides a physical-good listing, call `retry_making_listing_public`
 to rerun failed checks. If D6N says the listing is not ready to retry,
@@ -108,7 +108,9 @@ invalid address or unavailable live quote rejects the purchase before any
 payment challenge or charge. The
 x402/MPP challenge and final buy response include the total amount plus
 `itemCents`, `platformFeeCents`, and buyer-paid outbound `shippingCents`.
-Standard outbound label generation consumes that checkout allocation. Labels use
+Buyer-paid D6N outbound label generation consumes that checkout allocation.
+Seller-paid D6N labels are paid by the seller; seller-provided labels use order
+progress instead. Labels use
 `buy_d6n_shipping_label`, `list_d6n_shipping_labels`, and
 `refund_d6n_shipping_label`. Sellers may pass `cover_returns=true` only on
 outbound generation to pay only for future buyer return coverage. After a
@@ -133,8 +135,8 @@ when the bearer credential is an OBO token. Guest credentials return only
 Progress tools determine buyer or seller from the approved credential. Before
 carrier acceptance, the seller can use
 `get_order_progress_requirements` and
-`send_order_progress_updates(to_state="cancelled")` from `paid` or
-`label_generated`. D6N refunds the buyer, restores inventory, and handles any
+`send_order_progress_updates(to_state="cancelled")` from `paid`,
+`label_generated`, or `label_uploaded`. D6N refunds the buyer, restores inventory, and handles any
 generated label.
 The buyer cannot drive this seller transition. When an
 order is `return_label_sent`, buyers ship with the
@@ -142,9 +144,9 @@ provided D6N return label and carrier scans drive return progress. Do not ask
 buyers to report `return_tracking`. Prefer `status_hint` when explaining the
 current state or next action.
 For physical-good item purchases, `paid` means checkout succeeded and inventory
-is reserved. Generating the outbound label moves the order to
-`label_generated`. The `paid` and `label_generated` states share the same
-48-hour ship-by deadline from `paid`.
+is reserved. A D6N-generated outbound label moves the order to
+`label_generated`; a seller-provided label moves it to `label_uploaded`. All
+three pre-ship states share the same 48-hour ship-by deadline from `paid`.
 
 The skill detects whether it is running under Codex or Claude Code and writes to the matching MCP config:
 
