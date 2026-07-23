@@ -115,8 +115,10 @@ Buyer-paid D6N outbound label generation consumes that checkout allocation.
 Seller-paid D6N labels are paid by the seller. Order responses expose
 caller-scoped action descriptors in `seller_next_actions` or
 `buyer_next_actions`; each names a callable tool, prefilled arguments, and any
-required fields. Paid seller orders expose one of
-`generate_d6n_shipping_label` or `upload_d6n_shipping_label`. Return labels use
+`required_inputs`. Paid seller orders expose one of
+`generate_d6n_shipping_label` or `upload_d6n_shipping_label`, plus the
+available pre-carrier cancellation action. When `cancellation_penalty` is
+present, explain that charge to the human before cancellation. Return labels use
 `buy_d6n_shipping_label`; label history and refunds use
 `list_d6n_shipping_labels` and
 `refund_d6n_shipping_label`. Sellers may pass `cover_returns=true` only on

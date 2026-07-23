@@ -294,11 +294,13 @@ Use `status_str` for user-facing status and `status_hint`, when
 present, for the next-step explanation.
 Order reads include caller-scoped `seller_next_actions` or
 `buyer_next_actions`. Each descriptor names a callable tool, prefilled
-arguments, required fields, and a user-facing label; call only a returned
-action. A paid seller order returns exactly one of
-`generate_d6n_shipping_label` or `upload_d6n_shipping_label`. The upload action
-requires label URL, carrier, and tracking number. Buyer return and booking
-actions use the same descriptor format. Progress tools determine buyer or
+arguments, and `required_inputs`; call only a returned action. A paid seller
+order returns one of `generate_d6n_shipping_label` or
+`upload_d6n_shipping_label`, plus the available pre-carrier cancellation
+action. The upload action requires label URL, carrier, and tracking number.
+When `cancellation_penalty` is present, explain that charge to the human before
+cancellation. Buyer return and booking actions use the same descriptor format.
+Progress tools determine buyer or
 seller from the approved credential. Before carrier
 acceptance, the seller can use `send_order_progress_updates(to_state="cancelled")` from `paid`,
 `label_generated`, or `label_uploaded`; D6N refunds the buyer, restores inventory, and handles any
