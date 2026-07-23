@@ -268,7 +268,9 @@ available.
 
 Order tools:
 
-Shipping-label tools require `buy` or `sell` scope and an order-party match.
+Shipping-label tools require an order-party match. For shipping-ID actions, an
+OBO token's scope must match its owner's role on the related order: `buy` for
+the buyer and `sell` for the seller.
 Direction `outbound` generates a D6N seller label when the listing is not
 configured for a seller-provided label; the outbound payer comes from the rule.
 direction `return` purchases a buyer return label unless seller coverage applies.

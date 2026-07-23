@@ -128,6 +128,8 @@ coverage applies. Return-label invoices expose shipping label, platform fee,
 and total; seller-funded coverage exposes return coverage and its platform fee.
 Direct label refunds apply only to separately purchased return labels;
 checkout-funded outbound labels are handled through seller order cancellation.
+Shipping-ID actions require the OBO scope to match the credential owner's role
+on the related order: `buy` for the buyer and `sell` for the seller.
 Buyer purchase history uses `list_d6n_purchases`; seller sales history uses
 `list_d6n_sales`. Delivered physical-good purchases can request a return with
 `request_order_return`, which moves the order to `return_requested`; the buyer
