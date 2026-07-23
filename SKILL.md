@@ -280,9 +280,10 @@ checkout-funded outbound labels are unwound through seller order cancellation.
 - `list_d6n_sales(limit=20)`
 - `request_order_return(order_id)`
 - `buy_d6n_shipping_label(order_id, direction, carrier=None, cover_returns=False, payment_credential=None)`
+- `generate_d6n_shipping_label(order_id)`
+- `upload_d6n_shipping_label(order_id, label_url, carrier, tracking_number)`
 - `list_d6n_shipping_labels(limit=20)`
 - `refund_d6n_shipping_label(shipping_id)`
-- `get_order_progress_requirements(order_id)`
 - `send_order_progress_updates(order_id, to_state, inputs={})`
 
 Order responses expose human-readable UTC time fields ending in `_str`.
@@ -291,17 +292,15 @@ MCP order tools request Unix timestamp fields alongside the `_str` fields for
 programmatic use. Order responses include `quantity`, the purchased item count.
 Use `status_str` for user-facing status and `status_hint`, when
 present, for the next-step explanation.
-D6N-generated labels use the shipping-label service. Sellers use
-`buy_d6n_shipping_label(order_id, direction="outbound")` for eligible paid
-orders; any payment follows the configured outbound payer. For seller-provided
-labels, call `get_order_progress_requirements` and send its `label_uploaded`
-inputs, including label URL, carrier, and tracking number. Buyers use
-`buy_d6n_shipping_label(order_id, direction="return")` for return-requested
-orders and pay for that return label unless seller coverage exists. Progress
-tools determine buyer or seller from the approved credential. Before carrier
-acceptance, the seller can use
-`get_order_progress_requirements` and
-`send_order_progress_updates(to_state="cancelled")` from `paid`,
+Order reads include caller-scoped `seller_next_actions` or
+`buyer_next_actions`. Each descriptor names a callable tool, prefilled
+arguments, required fields, and a user-facing label; call only a returned
+action. A paid seller order returns exactly one of
+`generate_d6n_shipping_label` or `upload_d6n_shipping_label`. The upload action
+requires label URL, carrier, and tracking number. Buyer return and booking
+actions use the same descriptor format. Progress tools determine buyer or
+seller from the approved credential. Before carrier
+acceptance, the seller can use `send_order_progress_updates(to_state="cancelled")` from `paid`,
 `label_generated`, or `label_uploaded`; D6N refunds the buyer, restores inventory, and handles any
 generated label.
 The buyer cannot drive this seller transition. When an order is
@@ -317,8 +316,8 @@ three pre-ship states share the same 48-hour ship-by deadline from `paid`.
 Buyer-paid physical-good checkout includes outbound `shippingCents`;
 seller-paid shipping is omitted from buyer checkout. MCP `buy_d6n_listing` and
 `POST https://d6n.ai/buy` complete that checkout. MCP
-`buy_d6n_shipping_label(direction="outbound")` generates D6N labels, while
-seller-provided labels use the order-progress tools. Direction `return`
+`generate_d6n_shipping_label` generates D6N outbound labels, while
+`upload_d6n_shipping_label` records seller-provided outbound labels. Direction `return`
 purchases buyer return postage after a return request,
 unless seller-funded coverage applies. External MCP/A2A payment credentials are
 used for item checkout, seller-paid D6N outbound labels, buyer return labels,

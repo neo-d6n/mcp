@@ -112,9 +112,13 @@ payment challenge or charge. The
 x402/MPP challenge and final buy response include the total amount plus
 `itemCents`, `platformFeeCents`, and buyer-paid outbound `shippingCents`.
 Buyer-paid D6N outbound label generation consumes that checkout allocation.
-Seller-paid D6N labels are paid by the seller; seller-provided labels use order
-progress instead. Labels use
-`buy_d6n_shipping_label`, `list_d6n_shipping_labels`, and
+Seller-paid D6N labels are paid by the seller. Order responses expose
+caller-scoped action descriptors in `seller_next_actions` or
+`buyer_next_actions`; each names a callable tool, prefilled arguments, and any
+required fields. Paid seller orders expose one of
+`generate_d6n_shipping_label` or `upload_d6n_shipping_label`. Return labels use
+`buy_d6n_shipping_label`; label history and refunds use
+`list_d6n_shipping_labels` and
 `refund_d6n_shipping_label`. Sellers may pass `cover_returns=true` only on
 outbound generation to pay only for future buyer return coverage. After a
 return request, the buyer purchases the return label unless that seller-funded
@@ -136,9 +140,7 @@ for the authenticated caller: `username`, `email_verified`, and `token_scope`
 when the bearer credential is an OBO token. Guest credentials return only
 `is_anonymous_guest=true` and the guest account note.
 Progress tools determine buyer or seller from the approved credential. Before
-carrier acceptance, the seller can use
-`get_order_progress_requirements` and
-`send_order_progress_updates(to_state="cancelled")` from `paid`,
+carrier acceptance, the seller can use `send_order_progress_updates(to_state="cancelled")` from `paid`,
 `label_generated`, or `label_uploaded`. D6N refunds the buyer, restores inventory, and handles any
 generated label.
 The buyer cannot drive this seller transition. When an
