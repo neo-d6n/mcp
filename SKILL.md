@@ -307,7 +307,8 @@ Progress tools determine buyer or
 seller from the approved credential. Before carrier
 acceptance, the seller can use `send_order_progress_updates(to_state="cancelled")` from `paid`,
 `label_generated`, or `label_uploaded`; D6N refunds the buyer, restores inventory, and handles any
-generated label.
+generated label. Cancellation from `paid` is penalty-free; cancellation from
+`label_generated` or `label_uploaded` applies the seller no-ship penalty.
 The buyer cannot drive this seller transition. When an order is
 `return_label_sent`, buyers ship with the
 provided D6N label and carrier scans
