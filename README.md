@@ -113,7 +113,8 @@ payment challenge or charge. The
 x402/MPP challenge and final buy response include the total amount plus
 `itemCents`, `platformFeeCents`, and buyer-paid outbound `shippingCents`.
 Buyer-paid D6N outbound label generation consumes that checkout allocation.
-Seller-paid D6N labels are paid by the seller. Order responses expose
+Seller-paid D6N outbound postage is charged to the seller account without a
+separate payment challenge. Order responses expose
 caller-scoped action descriptors in `seller_next_actions` or
 `buyer_next_actions`; each names a callable tool, prefilled arguments, and any
 `required_inputs`. Paid seller orders expose one of

@@ -323,11 +323,12 @@ Buyer-paid physical-good checkout includes outbound `shippingCents`;
 seller-paid shipping is omitted from buyer checkout. MCP `buy_d6n_listing` and
 `POST https://d6n.ai/buy` complete that checkout. MCP
 `generate_d6n_shipping_label` generates D6N outbound labels, while
-`upload_d6n_shipping_label` records seller-provided outbound labels. Direction `return`
-purchases buyer return postage after a return request,
-unless seller-funded coverage applies. External MCP/A2A payment credentials are
-used for item checkout, seller-paid D6N outbound labels, buyer return labels,
-and optional seller-funded return coverage.
+`upload_d6n_shipping_label` records seller-provided outbound labels. Seller-paid
+D6N outbound postage is charged to the seller account without a separate
+payment challenge. Direction `return` purchases buyer return postage after a
+return request, unless seller-funded coverage applies. External MCP/A2A payment
+credentials are used for item checkout, buyer return labels, and optional
+seller-funded return coverage.
 
 Use `datum_id` as the listing identifier. For create tools, `files` is required
 for every listing type and
