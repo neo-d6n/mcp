@@ -80,8 +80,14 @@ an authorized correction, re-read the listing and call
 `retry_making_listing_public` only if it remains private and retry is available.
 Every listing create explicitly names an existing seller-owned Shop; current
 browse state is never used as the listing destination. MCP exposes
-`switch_d6n_shop`, `create_d6n_shop`, `list_my_d6n_shops`, `get_d6n_shop`, and
-`update_d6n_shop`. Shop deletion remains a verified-owner profile/HTTP action.
+`switch_d6n_shop`, `get_current_session_d6n_shop`, `create_d6n_shop`,
+`list_my_d6n_shops`, `search_d6n_shops`, `get_d6n_shop`, and
+`update_d6n_shop`. Shop search uses one query and returns the server-ranked
+matching list from the existing Shop collection read. The current-session
+tool returns the canonical `shop_share_id`, or `null` when no Shop is selected;
+a temporary session-service failure is returned as an error instead. Each owner
+may create at most four Shops. Shop deletion remains a verified-owner
+profile/HTTP action.
 Seller `get_d6n_listing` reads expose media through one-based `media` and
 `display_media` descriptors plus an opaque `media_version`, without raw media
 IDs. Add or replace up to four base64 files with

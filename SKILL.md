@@ -195,9 +195,15 @@ Shop tools:
 - `switch_d6n_shop(shop_name)`: switch this MCP session to a public Shop by
   display name or canonical period-separated name. Later listing reads use it
   when they omit `shop_share_id`.
+- `get_current_session_d6n_shop()`: return this MCP session's canonical
+  `shop_share_id`, or `null` when no Shop is selected. A temporary session
+  service failure is returned as an error, not as `null`.
 - `create_d6n_shop(shop_name, description)`: create a seller-owned Shop;
-  requires `sell` scope and a verified owner account.
+  requires `sell` scope and a verified owner account; each owner may have at
+  most four Shops.
 - `list_my_d6n_shops(limit=50)`: list Shops owned by the represented seller.
+- `search_d6n_shops(query, limit=10)`: search all Shops by partial display
+  name or canonical share ID. Exact and prefix matches rank first.
 - `get_d6n_shop(shop_name)`: read one Shop by display or canonical name.
 - `update_d6n_shop(share_id, shop_name=None, description=None)`: update an
   owned Shop with `sell` scope.
