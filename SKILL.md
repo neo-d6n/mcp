@@ -48,7 +48,8 @@ Use the D6N agent auth HTTP origin:
 
 ## Install Flow
 
-If `$ARGUMENTS` is `reauthorize` or `replace-keys`, follow the same flow and replace the existing `d6n` MCP entry for the active client.
+If `$ARGUMENTS` is `reauthorize` or `replace-keys`, follow the authenticated
+flow and replace the existing `d6n` MCP entry for the active client.
 
 ### 1. Ask For Scope
 
@@ -188,7 +189,7 @@ buyer order returns, and seller order fulfillment.
 
 Account/profile tool:
 
-- `profile_info()`: return minimal D6N account info for the authenticated caller. Guests return `is_anonymous_guest=true` plus a note; authenticated users return `username`, `email_verified`, and `token_scope` when the bearer credential is an OBO token.
+- `profile_info()`: return minimal D6N account info for the authenticated caller, including `username`, `email_verified`, and `token_scope` when the bearer credential is an OBO token.
 
 Shop tools:
 
@@ -238,8 +239,9 @@ marketplace search.
 
 Listing read/manage tools:
 
-- `browse_d6n_listings(shop_share_id=None, listing_type=None, tags_any=None, languages_any=None, amenities_any=None, price_cents_min=None, price_cents_max=None, currency=None, category=None, location_city=None, location_region=None, location_country=None, service_type=None, sort="newest", limit=20, cursor=None)`: Shop-scoped feed/discovery view. Use for "what can I buy", "what is available", or "show listings" and do not pass a natural-language query.
-- `search_d6n_listings(q, shop_share_id=None, listing_type=None, tags_any=None, languages_any=None, amenities_any=None, price_cents_min=None, price_cents_max=None, currency=None, category=None, location_city=None, location_region=None, location_country=None, service_type=None, sort="relevance", mode="lexical", limit=20, cursor=None)`: targeted Shop-scoped search; `q` must be meaningful and non-empty.
+- `browse_d6n_listings(shop_share_id=None, listing_type=None, tags_any=None, languages_any=None, amenities_any=None, price_cents_min=None, price_cents_max=None, currency=None, category=None, subcategory=None, location_city=None, location_region=None, location_country=None, service_type=None, sort="newest", limit=20, cursor=None)`: Shop-scoped feed/discovery view. Use for "what can I buy", "what is available", or "show listings" and do not pass a natural-language query.
+- `search_d6n_listings(q, shop_share_id=None, listing_type=None, tags_any=None, languages_any=None, amenities_any=None, price_cents_min=None, price_cents_max=None, currency=None, category=None, subcategory=None, location_city=None, location_region=None, location_country=None, service_type=None, sort="relevance", limit=20, cursor=None)`: targeted Shop-scoped search; `q` must be meaningful and non-empty.
+- `search_d6n_listings_across_shops(q, listing_type=None, tags_any=None, languages_any=None, amenities_any=None, price_cents_min=None, price_cents_max=None, currency=None, category=None, subcategory=None, location_city=None, location_region=None, location_country=None, service_type=None, sort="relevance", limit=20, cursor=None)`: query-only marketplace-wide search for options or Shops carrying a described item. It does not use or change the current Shop; every result includes a public Shop reference. It requires the configured D6N bearer credential.
 - `list_my_d6n_listings(limit=50)`: owner view for listings created by the authenticated user. Physical-good owner rows include `inventory_count`; physical-good `inventory_count=0` or a missing count means sold out and appears after available listings. Data-listing inventory is not applicable.
 - `get_d6n_listing(datum_id, shop_share_id=None)`: Shop-scoped owner view for the seller, buyer view for the purchaser, or prospect view for an authenticated non-purchaser on public listings. The caller-scoped response sets `is_owner=true` only for the seller; never buy that listing.
 - `update_d6n_listing_details(datum_id, fields=None, shop_name=None, price_usd=None, open_to_public=None, access_terms=None, product_url=None, seller_notes=None, inventory_count=None, condition=None, brand=None, model=None, color=None, dimensions=None)`: update editable owner fields; requires `sell` scope and ownership. Physical-good `dimensions` is `{x, y, z, weight}`, with x/y/z in inches and weight in ounces. First read the owner view and use only `editable_fields`. `shop_name` moves the listing only to another existing Shop owned by the seller; `price_usd` converts to `price_cents`.

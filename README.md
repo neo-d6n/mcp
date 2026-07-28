@@ -106,7 +106,13 @@ requests such as "what can I buy" or "show listings". Search returns the same
 Shop-scoped view for targeted item searches and requires a meaningful non-empty
 `q`. Individual reads return the caller-specific owner, buyer, or Shop-scoped
 prospect view with `is_owner=true` only for the owner; physical-good full reads may
-include a curated display-media count. Buyer purchase flows use
+include a curated display-media count.
+`search_d6n_listings_across_shops` is the query-only marketplace-wide search.
+It does not accept or inherit a Shop, does not change the current Shop, and each
+listing result includes the public Shop name, share ID, and URL. It requires the
+same approved D6N bearer credential as every MCP operation.
+
+Buyer purchase flows use
 MCP `buy_d6n_listing` or `POST https://d6n.ai/buy` with a `buy` credential and
 x402/MPP payment credential. External MCP/A2A clients do not charge the buyer's
 saved D6N payment profile; saved-profile payment requires a first-party human
@@ -149,8 +155,7 @@ and `Cancelled`, and may include `status_hint` for user-facing next steps.
 
 Account/profile lookups use `profile_info()`. It returns minimal account data
 for the authenticated caller: `username`, `email_verified`, and `token_scope`
-when the bearer credential is an OBO token. Guest credentials return only
-`is_anonymous_guest=true` and the guest account note.
+when the bearer credential is an OBO token.
 Progress tools determine buyer or seller from the approved credential. Before
 carrier acceptance, the seller can use `send_order_progress_updates(to_state="cancelled")` from `paid`,
 `label_generated`, or `label_uploaded`. D6N refunds the buyer, restores inventory, and handles any
