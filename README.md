@@ -106,10 +106,10 @@ requests such as "what can I buy" or "show listings". Search returns the same
 Shop-scoped view for targeted item searches and requires a meaningful non-empty
 `q`. Individual reads return the caller-specific owner, buyer, or Shop-scoped
 prospect view with `is_owner=true` only for the owner; physical-good full reads may
-include a curated display-media count.
+include a curated display-media count. Every browse, search, individual-read,
+and owned-listing result includes its public Shop name, share ID, and URL.
 `search_d6n_listings_across_shops` is the query-only marketplace-wide search.
-It does not accept or inherit a Shop, does not change the current Shop, and each
-listing result includes the public Shop name, share ID, and URL. It requires the
+It does not accept or inherit a Shop or change the current Shop. It requires the
 same approved D6N bearer credential as every MCP operation.
 
 Buyer purchase flows use
