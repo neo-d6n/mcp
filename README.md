@@ -81,9 +81,12 @@ an authorized correction, re-read the listing and call
 Every listing create explicitly names an existing seller-owned Shop; current
 browse state is never used as the listing destination. MCP exposes
 `switch_d6n_shop`, `get_current_session_d6n_shop`, `create_d6n_shop`,
-`list_my_d6n_shops`, `search_d6n_shops`, `get_d6n_shop`, and
-`update_d6n_shop`. Shop search uses one query and returns the server-ranked
-matching list from the existing Shop collection read. The current-session
+`list_my_d6n_shops`, `browse_d6n_shops`, `search_d6n_shops`, `get_d6n_shop`, and
+`update_d6n_shop`. Shop search accepts an optional query: nonblank text returns
+the server-ranked matching list, while omitted or blank text returns
+recommended public D6N Shops. Shop browse also returns recommended public D6N
+Shops and their public Shop identity. Excessive Shop search calls may be
+throttled. The current-session
 tool returns the canonical `shop_share_id`, or `null` when no Shop is selected;
 a temporary session-service failure is returned as an error instead. Each owner
 may create at most four Shops. Shop deletion remains a verified-owner
@@ -99,13 +102,13 @@ writes run display classification.
 `browse_d6n_listings`, `search_d6n_listings`, and `get_d6n_listing` accept an
 optional canonical `shop_share_id`. An explicit value scopes that call and
 takes precedence; when omitted, the tools use the current Shop selected by
-`switch_d6n_shop`. If neither is available for a non-founder listing read,
-select a Shop first. Explicit per-call selection does not replace the current
+`switch_d6n_shop` when available. Browse and Shop-targeted search require one
+of those Shop scopes. Explicit per-call selection does not replace the current
 Shop. Browse returns compact search-view listings for feed/discovery
 requests such as "what can I buy" or "show listings". Search returns the same
 Shop-scoped view for targeted item searches and requires a meaningful non-empty
-`q`. Individual reads return the caller-specific owner, buyer, or Shop-scoped
-prospect view with `is_owner=true` only for the owner; physical-good full reads may
+`q`. Individual reads return the caller-scoped owner, buyer, or prospect view
+with `is_owner=true` only for the owner; physical-good full reads may
 include a curated display-media count. Every browse, search, individual-read,
 and owned-listing result includes its public Shop name, share ID, and URL.
 `search_d6n_listings_across_shops` is the query-only marketplace-wide search.

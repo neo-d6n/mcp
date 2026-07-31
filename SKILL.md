@@ -203,8 +203,12 @@ Shop tools:
   requires `sell` scope and a verified owner account; each owner may have at
   most four Shops.
 - `list_my_d6n_shops(limit=50)`: list Shops owned by the represented seller.
-- `search_d6n_shops(query, limit=10)`: search all Shops by partial display
-  name or canonical share ID. Exact and prefix matches rank first.
+- `browse_d6n_shops(limit=50)`: browse recommended public D6N Shops and their
+  public Shop identity.
+- `search_d6n_shops(query=None, limit=10)`: search all Shops by partial display
+  name or canonical share ID. Exact and prefix matches rank first. An omitted
+  or blank query returns recommended public D6N Shops. Excessive calls may be
+  throttled.
 - `get_d6n_shop(shop_name)`: read one Shop by display or canonical name.
 - `update_d6n_shop(share_id, shop_name=None, description=None)`: update an
   owned Shop with `sell` scope.
@@ -243,7 +247,7 @@ Listing read/manage tools:
 - `search_d6n_listings(q, shop_share_id=None, listing_type=None, tags_any=None, languages_any=None, amenities_any=None, price_cents_min=None, price_cents_max=None, currency=None, category=None, subcategory=None, location_city=None, location_region=None, location_country=None, service_type=None, sort="relevance", limit=20, cursor=None)`: targeted Shop-scoped search; `q` must be meaningful and non-empty. Every result includes its public Shop reference.
 - `search_d6n_listings_across_shops(q, listing_type=None, tags_any=None, languages_any=None, amenities_any=None, price_cents_min=None, price_cents_max=None, currency=None, category=None, subcategory=None, location_city=None, location_region=None, location_country=None, service_type=None, sort="relevance", limit=20, cursor=None)`: query-only marketplace-wide search for options or Shops carrying a described item. It does not use or change the current Shop; every result includes a public Shop reference. It requires the configured D6N bearer credential.
 - `list_my_d6n_listings(limit=50)`: owner view for listings created by the authenticated user. Every result includes its public Shop reference. Physical-good owner rows include `inventory_count`; physical-good `inventory_count=0` or a missing count means sold out and appears after available listings. Data-listing inventory is not applicable.
-- `get_d6n_listing(datum_id, shop_share_id=None)`: Shop-scoped owner view for the seller, buyer view for the purchaser, or prospect view for an authenticated non-purchaser on public listings. The response includes its public Shop reference. The caller-scoped response sets `is_owner=true` only for the seller; never buy that listing.
+- `get_d6n_listing(datum_id, shop_share_id=None)`: caller-scoped owner view for the seller, buyer view for the purchaser, or prospect view for an authenticated non-purchaser on public listings. The response includes its public Shop reference. The caller-scoped response sets `is_owner=true` only for the seller; never buy that listing.
 - `update_d6n_listing_details(datum_id, fields=None, shop_name=None, price_usd=None, open_to_public=None, access_terms=None, product_url=None, seller_notes=None, inventory_count=None, condition=None, brand=None, model=None, color=None, dimensions=None)`: update editable owner fields; requires `sell` scope and ownership. Physical-good `dimensions` is `{x, y, z, weight}`, with x/y/z in inches and weight in ounces. First read the owner view and use only `editable_fields`. `shop_name` moves the listing only to another existing Shop owned by the seller; `price_usd` converts to `price_cents`.
 - `get_outbound_shipping_rule(datum_id)`: read the listing's outbound shipping rule. Physical-good listing reads do not embed this rule.
 - `get_inbound_shipping_rule(datum_id)`: read the listing's inbound shipping rule. Physical-good listing reads do not embed this rule.
@@ -258,9 +262,9 @@ Listing read/manage tools:
 
 For browse, search, and individual listing reads, an explicit canonical `shop_share_id`
 scopes that call and takes precedence. When it is omitted, the tool uses the
-current Shop selected by `switch_d6n_shop`; if neither is available, select a
-Shop first. Passing `shop_share_id` for one call does not replace the current
-Shop.
+current Shop selected by `switch_d6n_shop` when available. Browse and
+Shop-targeted search require one of those Shop scopes. Passing `shop_share_id`
+for one call does not replace the current Shop.
 
 Physical-good listing reads omit shipping rules. Read them with
 `get_outbound_shipping_rule` and `get_inbound_shipping_rule`, then use the
