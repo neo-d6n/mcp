@@ -114,6 +114,9 @@ and owned-listing result includes its public Shop name, share ID, and URL.
 `search_d6n_listings_across_shops` is the query-only marketplace-wide search.
 It does not accept or inherit a Shop or change the current Shop. It requires the
 same approved D6N bearer credential as every MCP operation.
+If the user has not described an item, tell them that cross-Shop search is
+available and ask what kind of item they want instead of calling it with a
+generic noun such as `listings`, `items`, `products`, or `goods`.
 
 Buyer purchase flows use
 MCP `buy_d6n_listing` or `POST https://d6n.ai/buy` with a `buy` credential and
