@@ -296,7 +296,7 @@ checkout-funded outbound labels are unwound through seller order cancellation.
 - `request_order_return(order_id)`
 - `buy_d6n_shipping_label(order_id, direction, carrier=None, cover_returns=False, payment_credential=None)`
 - `generate_d6n_shipping_label(order_id)`
-- `upload_d6n_shipping_label(order_id, label_url, carrier, tracking_number)`
+- `register_d6n_shipping_tracking(order_id, carrier, tracking_number)`
 - `list_d6n_shipping_labels(limit=20)`
 - `refund_d6n_shipping_label(shipping_id)`
 - `send_order_progress_updates(order_id, to_state, inputs={})`
@@ -311,8 +311,8 @@ Order reads include caller-scoped `seller_next_actions` or
 `buyer_next_actions`. Each descriptor names a callable tool, prefilled
 arguments, and `required_inputs`; call only a returned action. A paid seller
 order returns one of `generate_d6n_shipping_label` or
-`upload_d6n_shipping_label`, plus the available pre-carrier cancellation
-action. The upload action requires label URL, carrier, and tracking number.
+`register_d6n_shipping_tracking`, plus the available pre-carrier cancellation
+action. The tracking action requires a supported carrier and tracking number.
 When `cancellation_penalty` is present, explain that charge to the human before
 cancellation. Buyer return and booking actions use the same descriptor format.
 Progress tools determine buyer or
@@ -335,7 +335,7 @@ Buyer-paid physical-good checkout includes outbound `shippingCents`;
 seller-paid shipping is omitted from buyer checkout. MCP `buy_d6n_listing` and
 `POST https://d6n.ai/buy` complete that checkout. MCP
 `generate_d6n_shipping_label` generates D6N outbound labels, while
-`upload_d6n_shipping_label` records seller-provided outbound labels. Seller-paid
+`register_d6n_shipping_tracking` registers seller-provided outbound tracking. Seller-paid
 D6N outbound postage is charged to the seller account without a separate
 payment challenge. Direction `return` purchases buyer return postage after a
 return request, unless seller-funded coverage applies. External MCP/A2A payment
