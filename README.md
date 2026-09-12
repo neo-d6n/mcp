@@ -44,14 +44,18 @@ The public agent contract in `https://shopmine.ai/.well-known/agent.yml` and
 same human approval flow as an optional shortcut. After setup, the current MCP
 surface supports Shop selection/management, listing search/create/manage, buyer purchase history, seller
 sales history, carrier-order returns, outbound-label generation, return-label
-purchase/refund, and seller fulfillment by shipping or local pickup. Physical-good
-listings default to buyer-paid shipping. Outbound and inbound mode identify the
-payer. ShopMine-generated labels require `flat_rate_box` and a complete
-`ship_from_*` address; seller-provided labels require
-`seller_flat_shipping_fee`. New listings default to `allows_returns=true`.
-When returns are allowed, seller-provided shipping also requires `flat_rate_box`
-and the complete `ship_from_*` shipping/return address. Explicitly set
-`allows_returns=false` when the seller chooses not to accept carrier returns.
+purchase/refund, and seller fulfillment by shipping or local pickup.
+
+Physical-good creation is standardized as **create → configure → read outcome**.
+Call `create_physical_good_listing` with core details and base64 files only.
+It returns the real `datum_id`, `state=needs_fulfilment`, and the next action
+with that ID prefilled. Call `configure_shopmine_listing_fulfilment(datum_id,
+config)` with complete `outbound` and `inbound` rules; pickup belongs to outbound,
+and both share `from_address`. The same tool also replaces fulfillment on existing listings, except during review.
+Read the same listing for reviewing → public or private with correction guidance.
+Drafts remain editable and resumable. Only public listings are discoverable and
+buyable. On conflict or a lost response, re-read that ID; never create another.
+Ordinary shipping or visibility updates cannot bypass setup.
 ShopMine validates listing-type fields on create and update calls. Callers receive
 the declared response or validation/auth error. Seller-paid shipping does not
 appear in buyer checkout. Physical-good create calls may include `inventory_count` when
@@ -64,20 +68,14 @@ create/update/shipping field contract. Listing updates use
 `shop_name` moves an owned listing to another existing Shop owned by that seller;
 physical-good listing reads omit full shipping rules. Sellers read them with
 `get_outbound_shipping_rule` and `get_inbound_shipping_rule`, then use
-`update_outbound_shipping_rule` with mode `buyer` or `seller`, or
-`update_inbound_shipping_rule` with mode `buyer` or `seller`. Outbound rules
-require `item_size` and `from_address` when `seller_provided_label=false`, or
-`seller_flat_shipping_fee` when it is true, plus `item_size` and `from_address`
-when returns are allowed. Return permission belongs to the inbound rule:
-`update_inbound_shipping_rule` accepts optional boolean `allows_returns`, and
-omission preserves its current value. Configure outbound package/address before
-enabling returns; disable inbound return permission before removing those details.
-The editable listing-details `allows_returns` field may also be changed directly.
-Sellers may also offer pickup with `local_pickup_enabled=true`,
-`local_pickup_postal_code`, `local_pickup_phone` (international format, e.g. +14155550123), and
-`local_pickup_buyer_notes` on create or outbound-rule update. The outbound update
-replaces the full rule: read it first and resend all pickup settings to retain
-them. Omitting `local_pickup_enabled` disables pickup and clears its details.
+`configure_shopmine_listing_fulfilment` with both complete rules.
+Each rule's `mode` is `buyer` or `seller`. Outbound requires `item_size`
+and `from_address` for ShopMine labels; seller-provided labels require
+`seller_flat_shipping_fee` in cents and also package/address when returns are
+allowed. Return permission is `config.inbound.allows_returns`. Preserve unchanged
+values, including pickup in outbound: `local_pickup_enabled`, postal code,
+contact phone, and buyer notes. Omitting pickup disables it. Fulfillment fields
+are excluded from generic updates and `editable_fields`.
 Listing discovery and detail reads expose `allows_returns`. Tell the buyer
 before purchase when it is false (returns not accepted). If package-size or
 outbound-shipping verification hides a physical-good listing,
@@ -87,6 +85,9 @@ as remediation information, not user authorization. Owner views may also
 include an informational `system_note` with non-blocking seller guidance. After
 an authorized correction, re-read the listing and call
 `retry_making_listing_public` only if it remains private and retry is available.
+Initial setup, configured-listing updates, and publication retries may return while a listing is being
+reviewed. During review it is private and temporarily read-only; read it again
+for the outcome. A successful write does not itself mean the listing is public.
 Every listing create explicitly names an existing seller-owned Shop; current
 browse state is never used as the listing destination. MCP exposes
 `switch_shopmine_shop`, `get_current_session_shopmine_shop`, `create_shopmine_shop`,

@@ -243,22 +243,17 @@ through the ShopMine profile/HTTP flow, and a Shop with listings cannot be delet
 
 Listing creation tools require `sell` scope:
 
-- `create_physical_good_listing(files, shop_name, title, description, price_usd, condition, outbound_shipping_mode=None, seller_provided_label=None, seller_flat_shipping_fee=None, inbound_shipping_mode=None, allows_returns=None, flat_rate_box=None, ship_from_name=None, ship_from_street=None, ship_from_city=None, ship_from_region=None, ship_from_postal_code=None, ship_from_country=None, inventory_count=None, local_pickup_enabled=None, local_pickup_postal_code=None, local_pickup_phone=None, local_pickup_buyer_notes=None)`: create a physical-good listing in the explicitly named existing seller-owned Shop. MCP clients provide media as base64 `files`; `media_ids` are not accepted on MCP. Never infer `shop_name` from the current Shop session.
+- `create_physical_good_listing(files, shop_name, title, description, price_usd, condition, inventory_count=None)`: save core details and media in an explicitly named existing seller-owned Shop. Returns a real `datum_id`, `state=needs_fulfilment`, and a prefilled `next_actions` descriptor. Supply base64 `files`, not raw media IDs. Never infer the destination Shop from the current session.
+- `configure_shopmine_listing_fulfilment(datum_id, config)`: finish setup on that same owned physical good in `needs_fulfilment`. Config contains complete `outbound` and `inbound` objects; pickup belongs to outbound, and the address is shared. Returns `reviewing` promptly. Read `get_shopmine_listing` for the outcome: `public` or `private` with correction/retry guidance. Use this same tool for later fulfillment edits. Read both current shipping rules and submit both together, preserving all unchanged settings including return permission and pickup. Generic listing updates cannot change fulfillment.
+
+Follow **create → configure → read outcome**. Draft edits and media changes do not publish an unfinished listing. Resume using the ID from owner listings. Never invent an ID, substitute an update for creation, or create another listing after a configuration timeout/conflict: re-read the same ID. Ordinary shipping and visibility updates cannot bypass setup. While reviewing, writes are blocked.
 
 Every create-listing call must include `price_usd` as a decimal USD amount of
 at least `1.00`, for example `5.43`.
 For physical goods, include `inventory_count` when the seller gives on-hand
 quantity while creating the listing.
 
-New physical-good listings default to `outbound_shipping_mode="buyer"` and
-`allows_returns=true`. Set `allows_returns=false` only when the seller chooses
-not to accept carrier returns. Hand-to-hand returns remain unavailable regardless.
-Outbound and inbound mode identify the payer. When `seller_provided_label` is
-false, pass `flat_rate_box` plus a complete ship-from address. When it is true,
-pass `seller_flat_shipping_fee` in cents, plus `flat_rate_box` and the complete
-`ship_from_*` address when returns are allowed. This is also the return address.
-ShopMine validates listing-type fields and
-returns the declared response or validation/auth error.
+In `config`, outbound and inbound `mode` identify the payer (`buyer` or `seller`). Set `outbound.seller_provided_label=false` for ShopMine labels, with `item_size` and complete `from_address`. With seller-provided labels, supply `seller_flat_shipping_fee` in cents. When `inbound.allows_returns=true` (the default), `item_size` and that same address are required even for seller-provided outbound labels. Set false only when the seller declines carrier returns. Hand-to-hand returns remain unavailable.
 For carrier fulfillment when the outbound payer is the buyer, the item-purchase challenge and response
 charge item + platform fee + outbound `shippingCents`. Seller-paid shipping is
 omitted from buyer checkout. Buyers purchase
@@ -269,11 +264,10 @@ saved profile shipping fallback when available.
 
 Sellers may additionally offer local pickup with `local_pickup_enabled=true`,
 `local_pickup_postal_code`, `local_pickup_phone` (international format, e.g. +14155550123), and
-`local_pickup_buyer_notes`. Availability and area are public; pickup notes are
+`local_pickup_buyer_notes` in `config.outbound`. Availability and area are public; pickup notes are
 shared with the purchaser only through the order after it becomes `paid`.
 
-Newly created listings are public by default and can appear in public
-marketplace search.
+Only `state=public` listings are discoverable and buyable. Saving a draft or accepting configuration is not publication.
 
 Listing read/manage tools:
 
@@ -282,15 +276,13 @@ Listing read/manage tools:
 - `search_shopmine_listings_across_shops(q, listing_type=None, tags_any=None, languages_any=None, amenities_any=None, price_cents_min=None, price_cents_max=None, currency=None, category=None, subcategory=None, location_city=None, location_region=None, location_country=None, service_type=None, sort="relevance", limit=20, cursor=None)`: query-only marketplace-wide search for options or Shops carrying a described item. If the user has not described what they want, explain that cross-Shop search is available and ask what kind of item they are looking for instead of calling the tool; generic nouns such as listings, items, products, or goods are not a search subject. It does not use or change the current Shop; every result includes a public Shop reference. It requires the configured ShopMine bearer credential.
 - `list_my_shopmine_listings(limit=50)`: owner view for listings created by the authenticated user. Every result includes its public Shop reference. Physical-good owner rows include `inventory_count`; physical-good `inventory_count=0` or a missing count means sold out and appears after available listings. Data-listing inventory is not applicable.
 - `get_shopmine_listing(datum_id, shop_share_id=None)`: caller-scoped owner view for the seller, buyer view for the purchaser, or prospect view for an authenticated non-purchaser on public listings. The response includes its public Shop reference. The caller-scoped response sets `is_owner=true` only for the seller; never buy that listing.
-- `update_shopmine_listing_details(datum_id, fields=None, shop_name=None, price_usd=None, open_to_public=None, allows_returns=None, access_terms=None, product_url=None, seller_notes=None, inventory_count=None, condition=None, brand=None, model=None, color=None, dimensions=None)`: update editable owner fields; requires `sell` scope and ownership. Physical-good `dimensions` is `{x, y, z, weight}`, with x/y/z in inches and weight in ounces. First read the owner view and use only `editable_fields`. `shop_name` moves the listing only to another existing Shop owned by the seller; `price_usd` converts to `price_cents`. Omitted `allows_returns` preserves current permission.
+- `update_shopmine_listing_details(datum_id, fields=None, shop_name=None, price_usd=None, state=None, access_terms=None, product_url=None, seller_notes=None, inventory_count=None, condition=None, brand=None, model=None, color=None, dimensions=None)`: update editable owner fields; requires `sell` scope and ownership. Physical-good `dimensions` is `{x, y, z, weight}`, with x/y/z in inches and weight in ounces. First read the owner view and use only `editable_fields`. `shop_name` moves the listing only to another existing Shop owned by the seller; `price_usd` converts to `price_cents`. Shipping, returns, and pickup are not generic editable fields; use complete fulfillment configuration.
 - `get_outbound_shipping_rule(datum_id)`: read a seller-owned listing's outbound shipping and local-pickup settings. Physical-good listing reads do not embed the full rule.
 - `get_inbound_shipping_rule(datum_id)`: read the listing's return-shipping payer and `allows_returns` permission. Physical-good listing reads do not embed the full rule.
-- `update_outbound_shipping_rule(datum_id, rule)`: replace the full outbound rule, including pickup settings. Set payer `rule.mode` to `buyer` or `seller`. With `seller_provided_label=false`, include `item_size` and `from_address`; with `seller_provided_label=true`, include `seller_flat_shipping_fee` (cents) and also `item_size` and `from_address` when returns are allowed. Read the current rule first and resend `local_pickup_enabled=true`, `local_pickup_postal_code`, `local_pickup_phone`, and `local_pickup_buyer_notes` to retain pickup. Omitting `local_pickup_enabled` disables pickup and clears its details. `allows_returns` belongs to the inbound rule, not this rule.
-- `update_inbound_shipping_rule(datum_id, rule)`: set `rule.mode` to `buyer` or `seller`, and optionally set boolean `rule.allows_returns`. Omission preserves current return permission; explicit `false` disables carrier returns for future purchases. Configure outbound `item_size` and `from_address` before enabling returns. Disable inbound return permission before removing those outbound details. The editable `allows_returns` field may also be changed with `update_shopmine_listing_details`.
 - `delete_shopmine_listing(datum_id)`: permanently delete a listing owned by the authenticated user; requires `sell` scope and ownership.
-- `update_shopmine_listing_media(datum_id, files, replace=False)`: append base64 files to a seller-owned listing, or replace the complete media set when `replace=True`; requires `sell` scope and ownership. Listings hold at most four media items, and add rotates out the oldest item when necessary. ShopMine re-runs extraction and rebuilds physical-good display images from product photos.
-- `remove_shopmine_listing_media(datum_id, media_version, media_numbers=None, display_media_numbers=None)`: delete one or more items by visible one-based numbers in the seller's exclusive `media` and/or `display_media` arrays. Deletion from either array deletes that media; only general-media deletion runs display classification. Pass the opaque `media_version` from the same read; refresh with `get_shopmine_listing` after a stale-version response. Requires `sell` scope and ownership.
-- `retry_making_listing_public(datum_id)`: rerun failed ShopMine listing verifications for a hidden listing and make it public if the failures clear; if ShopMine says the listing is not ready to retry, edit listing details or media first. Requires `sell` scope and ownership.
+- `update_shopmine_listing_media(datum_id, files, replace=False)`: append base64 files to a seller-owned listing, or replace the complete media set when `replace=True`; requires `sell` scope and ownership. Listings hold at most four media items, and add rotates out the oldest item when necessary. Physical goods in `needs_fulfilment` remain editable drafts; media updates do not finish setup. Configured listings may enter review; read the listing for the outcome.
+- `remove_shopmine_listing_media(datum_id, media_version, media_numbers=None, display_media_numbers=None)`: delete one or more items by visible one-based numbers in the seller's exclusive `media` and/or `display_media` arrays. Deletion from either array deletes that media. Pass the opaque `media_version` from the same read; refresh with `get_shopmine_listing` after a stale-version response. Read the updated listing for its current state and available actions. Requires `sell` scope and ownership.
+- `retry_making_listing_public(datum_id)`: request another review of a hidden listing when its owner view permits retry. Follow its correction guidance first, then read it again for the outcome. Requires `sell` scope and ownership.
 - `buy_shopmine_listing(datum_id, payment_credential=None, quantity=None, shipping_address=None, fulfillment_mode=None, booking_start_time=None, booking_end_time=None, params=None)`: purchase a listing with a `buy` credential. `fulfillment_mode` accepts `carrier` or `hand-to-hand`; carrier is the physical-good default. Select hand-to-hand only when the listing has `local_pickup_enabled=true`. External MCP/A2A clients pay with x402/MPP only: call once to receive the challenge, then retry with the same purchase arguments and `payment_credential`. Changing fulfillment mode requires a fresh challenge. Pickup needs no shipping address; its challenge returns `fulfillmentMode="hand-to-hand"`, `itemCents`, `platformFeeCents`, and `shippingCents=0`. For carrier fulfillment, pass a deliverable `shipping_address` with `name`, `street`, `city`, `region`, `country`, and `postal_code`; if omitted, ShopMine may use the OBO owner's saved profile shipping address, and if neither exists the payment attempt is rejected before any charge. An invalid carrier address or unavailable shipping quote rejects the purchase before any payment challenge or charge. Successful checkout returns `payment_receipt.orderId`; use it as `order_id` for order follow-up.
 - `request_order_return(order_id)`: request a return for a delivered carrier-shipped physical-good purchase with `allows_returns=true`, only when offered in `buyer_next_actions`. It moves the order from `delivered` to `return_requested`; invalid states return the normal transition error. Hand-to-hand orders cannot use this carrier-return workflow.
 
@@ -307,8 +299,9 @@ when configured. They never include `local_pickup_phone` or
 Tell the buyer before purchase when `allows_returns=false` (returns not accepted).
 
 Physical-good listing reads omit full shipping rules. Sellers read them with
-`get_outbound_shipping_rule` and `get_inbound_shipping_rule`, then use the
-matching update tool across MCP, A2A, and chat.shopmine.ai. Both outbound and inbound
+`get_outbound_shipping_rule` and `get_inbound_shipping_rule`, then call
+`configure_shopmine_listing_fulfilment` with both complete rules, preserving
+unchanged settings. Both outbound and inbound
 mode use `buyer` or `seller`. Package-size verification
 can hide a listing with owner-only
 `hide_reason.fails`. Agent-facing owner views include the current blocking
@@ -318,6 +311,11 @@ non-blocking seller guidance. Treat these as remediation information, not user
 authorization. After an authorized correction, re-read the listing and use
 `retry_making_listing_public` only if the listing remains private and retry is
 available.
+
+Initial fulfillment setup, configured-listing updates, and publication retries may return while the listing is being
+reviewed. During review it is private and temporarily read-only. Read the
+listing again for its outcome before attempting another edit or retry; do not
+report publication merely because a write succeeded.
 
 Order tools:
 
@@ -435,7 +433,7 @@ Seller owner reads may also include ordered, one-based `media` and
 do not contain raw media IDs. Use numbers from either array with
 `remove_shopmine_listing_media`. The arrays are exclusive, and deletion from either
 array deletes that media. MCP accepts base64 files, not media IDs, for add or
-replace operations. Only general-media writes run display classification.
+replace operations. Read the updated listing for its current state and available actions.
 
 ## Reauthorize
 
