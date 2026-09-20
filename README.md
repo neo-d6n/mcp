@@ -99,8 +99,8 @@ Shops and their public Shop identity. Excessive Shop search calls may be
 throttled. The current-session
 tool returns the canonical `shop_share_id`, or `null` when no Shop is selected;
 a temporary session-service failure is returned as an error instead. Each owner
-may create at most four Shops. Shop deletion remains a verified-owner
-profile/HTTP action.
+may create at most four Shops. A verified owner deletes a Shop from Shops in
+the browser chat settings; a Shop with listings cannot be deleted.
 Seller `get_shopmine_listing` reads expose media through one-based `media` and
 `display_media` descriptors plus an opaque `media_version`, without raw media
 IDs. Add or replace up to four base64 files with
@@ -205,6 +205,11 @@ is reserved. For carrier orders, a ShopMine-generated outbound label moves the o
 `label_generated`; a seller-provided label moves it to `label_uploaded`. All
 three carrier pre-ship states share the same 48-hour ship-by deadline from `paid`.
 
+Hand-to-hand pickup must be confirmed within three days after successful
+checkout, or the transaction is cancelled without a no-ship penalty. Paid
+order reads include the pickup `cancellation_deadline` (or its formatted
+`cancellation_deadline_str`); Delivery PIN issuance and confirmation after that
+deadline are rejected. Do not hand over the item after the deadline.
 Hand-to-hand orders stay `paid` while pickup is arranged. Buyer and seller order
 reads include `fulfillment_mode`, `fulfillment_postal_code`,
 `fulfillment_phone`, and `fulfillment_buyer_notes`; unpaid orders do not

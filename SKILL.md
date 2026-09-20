@@ -239,7 +239,7 @@ Shop tools:
   owned Shop with `sell` scope.
 
 Shop deletion is intentionally not an MCP/A2A tool. A verified owner deletes
-through the ShopMine profile/HTTP flow, and a Shop with listings cannot be deleted.
+from Shops in the browser chat settings, and a Shop with listings cannot be deleted.
 
 Listing creation tools require `sell` scope:
 
@@ -372,6 +372,11 @@ is reserved. For carrier orders, a ShopMine-generated outbound label moves the o
 `label_generated`; a seller-provided label moves it to `label_uploaded`. All
 three carrier pre-ship states share the same 48-hour ship-by deadline from `paid`.
 
+Hand-to-hand pickup must be confirmed within three days after successful
+checkout, or the transaction is cancelled without a no-ship penalty. Paid
+order reads include the pickup `cancellation_deadline` (or its formatted
+`cancellation_deadline_str`); Delivery PIN issuance and confirmation after that
+deadline are rejected. Do not hand over the item after the deadline.
 Hand-to-hand orders stay `paid` while pickup is arranged. The buyer and seller
 read `fulfillment_mode`, `fulfillment_postal_code`, `fulfillment_phone`,
 and `fulfillment_buyer_notes` using `get_shopmine_order` or their purchase/sales
