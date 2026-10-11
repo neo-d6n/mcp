@@ -8,6 +8,23 @@ ShopMine does not require a skill. Agents can discover the public agent surface 
 human-created ShopMine agent auth code, and configure `https://mcp.shopmine.ai/mcp` directly.
 This skill is only a convenience shortcut for clients that support skills.
 
+ChatGPT and Claude can also connect through native MCP OAuth: add the MCP server
+URL in the app, then sign in to ShopMine and approve the needed buy/sell access.
+OAuth access expires after 72 hours and supports client revocation. A2A also
+offers OAuth through its Agent Card and protected-resource discovery. Use S256
+PKCE and the advertised resource for authorization and token exchange; each
+token works only on the endpoint approved by the human. Reconnect to renew it.
+This skill's direct Bearer installation and both surfaces' agent-code flow
+remain available.
+
+Both MCP and A2A identify the connection as ShopMine Test or ShopMine Production.
+Keep credentials and listing/order IDs separate between environments. Invalid
+credentials return 401; temporary authorization unavailability returns 503 and
+should be retried without replacing credentials. Listing searches preserve
+`price_cents_max=0` for free listings; omit a bound or send null to leave it unset.
+Listing uploads require `filename` and `file_base64` and accept optional
+`content_type`; otherwise the type is inferred from the filename.
+
 ## Install
 
 After cloning this repository, install the skill from its root with the Skills
@@ -92,15 +109,17 @@ Every listing create explicitly names an existing seller-owned Shop; current
 browse state is never used as the listing destination. MCP exposes
 `switch_shopmine_shop`, `get_current_session_shopmine_shop`, `create_shopmine_shop`,
 `list_my_shopmine_shops`, `browse_shopmine_shops`, `search_shopmine_shops`, `get_shopmine_shop`, and
-`update_shopmine_shop`. Shop search accepts an optional query: nonblank text returns
+`update_shopmine_shop`, and `delete_shopmine_shop`. Shop search accepts an optional query: nonblank text returns
 the server-ranked matching list, while omitted or blank text returns
 recommended public ShopMine Shops. Shop browse also returns recommended public ShopMine
 Shops and their public Shop identity. Excessive Shop search calls may be
 throttled. The current-session
 tool returns the canonical `shop_share_id`, or `null` when no Shop is selected;
 a temporary session-service failure is returned as an error instead. Each owner
-may create at most four Shops. A verified owner deletes a Shop from Shops in
-the browser chat settings; a Shop with listings cannot be deleted.
+may create at most four Shops. `delete_shopmine_shop(share_id)` requires `sell`
+permission and ownership, permanently deletes an empty Shop, and returns
+`{"deleted": share_id}`. A Shop with listings cannot be deleted; the request
+fails without deleting its listings. Both MCP and A2A support this operation.
 Seller `get_shopmine_listing` reads expose media through one-based `media` and
 `display_media` descriptors plus an opaque `media_version`, without raw media
 IDs. Add or replace up to four base64 files with

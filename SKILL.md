@@ -24,10 +24,25 @@ both. The six-digit code is not the final credential and is safe to ask for;
 the returned `auth_key` is the credential and must stay secret. Do not ask the
 user to paste credentials.
 
-Do not use any old OAuth URL, callback URL, or approval polling flow. The only
-agent authorization flow is: owner creates a six-digit code at
+Native MCP clients such as ChatGPT and Claude can use OAuth discovered from
+the MCP endpoint. Their human sign-in and consent must remain in the app's
+browser flow. A2A also advertises OAuth in its Agent Card and protected-resource
+discovery. Use S256 PKCE and the advertised resource for authorization and token
+exchange. OAuth access works only on the approved endpoint, lasts 72 hours, and
+can be revoked; reconnect to renew it. Do not invent OAuth URLs or automate
+human consent. The agent-code flow remains available on both surfaces.
+
+This coding-agent shortcut uses the existing agent-code flow: owner creates a six-digit code at
 `/aiauth/create`, agent claims it once at `/aiauth/claim/{code}`, then the
 agent uses the returned scoped Bearer credential.
+
+Both MCP and A2A identify the connection as ShopMine Test or ShopMine Production.
+Keep credentials and listing/order IDs separate between environments. Invalid
+credentials return 401; temporary authorization unavailability returns 503 and
+should be retried without replacing credentials. Listing searches preserve
+`price_cents_max=0` for free listings; omit a bound or send null to leave it unset.
+Listing uploads require `filename` and `file_base64` and accept optional
+`content_type`; otherwise the type is inferred from the filename.
 
 ## What To Install
 
@@ -237,9 +252,10 @@ Shop tools:
 - `get_shopmine_shop(shop_name)`: read one Shop by display or canonical name.
 - `update_shopmine_shop(share_id, shop_name=None, description=None)`: update an
   owned Shop with `sell` scope.
-
-Shop deletion is intentionally not an MCP/A2A tool. A verified owner deletes
-from Shops in the browser chat settings, and a Shop with listings cannot be deleted.
+- `delete_shopmine_shop(share_id)`: permanently delete an owned empty Shop with
+  `sell` scope; returns `{"deleted": share_id}`. A Shop with listings cannot be
+  deleted; the request fails without deleting its listings. Available through
+  both MCP and A2A.
 
 Listing creation tools require `sell` scope:
 
