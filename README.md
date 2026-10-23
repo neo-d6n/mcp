@@ -9,7 +9,7 @@ human-created ShopMine agent auth code, and configure `https://mcp.shopmine.ai/m
 This skill is only a convenience shortcut for clients that support skills.
 
 ChatGPT and Claude can also connect through native MCP OAuth: add the MCP server
-URL in the app, then sign in to ShopMine and approve the needed buy/sell access.
+URL in the app, then sign in to ShopMine and approve the needed buy, sell, and/or payout access.
 OAuth access expires after 72 hours and supports client revocation. A2A also
 offers OAuth through its Agent Card and protected-resource discovery. Use S256
 PKCE and the advertised resource for authorization and token exchange; each
@@ -22,8 +22,15 @@ Keep credentials and listing/order IDs separate between environments. Invalid
 credentials return 401; temporary authorization unavailability returns 503 and
 should be retried without replacing credentials. Listing searches preserve
 `price_cents_max=0` for free listings; omit a bound or send null to leave it unset.
-Listing uploads require `filename` and `file_base64` and accept optional
-`content_type`; otherwise the type is inferred from the filename.
+Listing files require `filename` and exactly one nonempty `upload_id` or
+`file_base64`; `content_type` is optional. For local files, prefer
+`prepare_shopmine_listing_uploads` when the client can read files and send HTTP
+requests. It returns a short-lived upload URL, method, headers, expiry, and
+`field_name`. Send the originals together in one multipart request, then pass
+the returned `files` to create or update. Keep the returned upload headers private.
+Do not read or copy large base64 strings into chat. Clients without file/HTTP
+access may use inline `file_base64` when available; there is no local-path or
+remote-file-URL input.
 
 ## Install
 
@@ -48,7 +55,7 @@ After installing, open your AI coding agent and run:
 /shopmine
 ```
 
-The skill asks whether your agent should buy, sell, or do both on ShopMine, asks you
+The skill asks which buy, sell, and/or payout permissions your agent needs, asks you
 to create a six-digit code at `https://shopmine.ai/aiauth/create`, claims that code,
 then stores the returned 72-hour scoped credential in your MCP config:
 
@@ -64,7 +71,12 @@ sales history, carrier-order returns, outbound-label generation, return-label
 purchase/refund, and seller fulfillment by shipping or local pickup.
 
 Physical-good creation is standardized as **create → configure → read outcome**.
-Call `create_physical_good_listing` with core details and base64 files only.
+Use `prepare_shopmine_listing_uploads(files)` for one to four local files, supplying
+`filename` and positive `size_bytes` (100 MB total maximum).
+Send one binary multipart batch before its expiry. Call
+`create_physical_good_listing` with core details and the upload response’s `files`.
+Existing inline base64 files remain supported. Each file must have exactly one
+source key; both keys are invalid even if one is empty or null.
 It returns the real `datum_id`, `state=needs_fulfilment`, and the next action
 with that ID prefilled. Call `configure_shopmine_listing_fulfilment(datum_id,
 config)` with complete `outbound` and `inbound` rules; pickup belongs to outbound,
@@ -76,7 +88,8 @@ Ordinary shipping or visibility updates cannot bypass setup.
 ShopMine validates listing-type fields on create and update calls. Callers receive
 the declared response or validation/auth error. Seller-paid shipping does not
 appear in buyer checkout. Physical-good create calls may include `inventory_count` when
-the seller gives on-hand quantity. Owner listing lists include physical-good
+the seller gives on-hand quantity. It is the total units currently available
+for sale; updates set the final count, not an increment. Owner listing lists include physical-good
 `inventory_count`; physical-good `inventory_count=0` or a missing count means
 sold out and appears after available listings. Data-listing inventory is not
 applicable. See `SKILL.md` and `llms.txt` for the full
@@ -122,7 +135,7 @@ permission and ownership, permanently deletes an empty Shop, and returns
 fails without deleting its listings. Both MCP and A2A support this operation.
 Seller `get_shopmine_listing` reads expose media through one-based `media` and
 `display_media` descriptors plus an opaque `media_version`, without raw media
-IDs. Add or replace up to four base64 files with
+IDs. Add or replace up to four uploaded references or inline base64 files with
 `update_shopmine_listing_media`; appending beyond four rotates out the oldest item.
 Remove media by passing visible numbers from either `media` or `display_media`
 and the matching version to `remove_shopmine_listing_media`. The arrays are
@@ -151,11 +164,64 @@ If the user has not described an item, tell them that cross-Shop search is
 available and ask what kind of item they want instead of calling it with a
 generic noun such as `listings`, `items`, `products`, or `goods`.
 
-Buyer purchase flows use
-MCP `buy_shopmine_listing` or the corresponding A2A tool with a `buy` credential and
-x402/MPP payment credential. External MCP/A2A clients do not charge the buyer's
-saved ShopMine payment profile; saved-profile payment requires a first-party human
-checkout flow with explicit review and confirmation.
+For a described item without Shop context, start with one cross-Shop search;
+retain Shop-scoped search when a Shop is explicit or current. Keep the product
+in `q` and use separate filters, for example
+`search_shopmine_listings_across_shops(q="desk", price_cents_max=10000,
+shipping_origin="Portland")`. `shipping_origin` matches the exact city
+component or complete origin, ignoring case and trimming spaces around
+comma-separated parts: `Portland` matches `Portland, OR`. It is not substring,
+radius, or geocoded search. Answer from the returned price, condition, origin,
+pickup, and Shop fields; use `get_shopmine_listing` with `shop.share_id` as
+`shop_share_id` only for needed additional details. Avoid repeated synonym
+searches when results already answer the request.
+
+For credit-card purchases, call `get_shopmine_payment_url` with `buy` permission,
+`datum_id`, and a stable `request_id` (at most 200 characters). Optional purchase
+inputs are `quantity`, `fulfillment_mode`, `shipping_address`, `booking_start_time`
+and `booking_end_time`. Reuse the same ID and unchanged inputs for the same
+checkout. The response contains `status="payment_required"`, `url`, and
+`expires_at`. The initiating owner opens the URL, signs in, reviews the total
+and billing/shipping details, and approves payment using an existing saved card
+or a new card. Saving a new card is optional and off by default. Never collect
+card details in chat or approve payment for the human. A URL is not proof of
+payment; read the payment account or order for its current outcome.
+
+`buy_shopmine_listing` retains the x402/MPP challenge and credential flow for
+MPP/SPT purchases. Never switch payment methods silently. A virtual card is entered
+on the secure browser checkout page like another card. Card checkout and any
+available browser wallet or Link option do not issue an SPT; obtain an SPT
+through the separate MPP/SPT flow when using `buy_shopmine_listing`.
+
+Both MCP and A2A also expose exactly these account operations:
+
+- `setup_shopmine_payout_account(country="US", display_name=None)` requires `payout` scope and verified email, supports US accounts, and returns `human_payout_action_required` with a secure setup URL. Supply only known plain display text; the human provides identity and bank details and accepts agreements.
+- `close_shopmine_payout_account(payout_account_ref)` requires `payout` scope, verified email, and an explicit owner request to close the payout account. Read the current opaque reference from `seller.payout_account_ref` in `get_shopmine_payment_account`. All balances and pending payouts must be cleared first. Success returns `status="closed"` and the same reference; financial history is retained. Repeating that closed reference is safe and cannot close a replacement account. Closure never cashes out earnings automatically.
+- `cashout_shopmine_earnings(currency, request_id)` requires `payout`, selects all eligible earnings in one currency, and reuses the stable ID for retries. There is no partial-amount input. A pending result is not bank receipt; follow `bank_delivery_action_required` when returned and check the original cashout. A failed cashout includes a safe message, error_code and retry timing; its reference remains in history. Cashout submission returns 503 for temporary difficulties (MCP includes status_code); account reads still succeed. A failed request stays failed on replay; start a new cashout only when eligible. The returned delay is an eligibility limit, not a promise of success.
+- `get_shopmine_payment_account(cursor=None, cashout_request_id=None)` returns masked setup readiness and authorized financial sections with `included_sections`. Buy permits buyer sections and statements; payout permits seller balances, statements, cashout results and `seller.payout_account_ref` (null when no payout account is attached); sell alone permits common readiness. Use `next_cursor` for the next statement page.
+
+Payout permission means: Set up payout details, manage or close your payout
+account, and request payouts of your eligible earnings. Sell and payout do not authorize a purchase. Open returned
+setup links in the initiating owner's signed-in browser and complete the action
+there; do not collect sensitive details or accept agreements in chat. Returning
+from a setup link does not establish readiness. Omitted OAuth scopes continue to
+default to buy sell.
+
+Build `payment_credential` by keeping the returned challenge fields at the JSON
+top level and adding the selected method and issued SPT, then encode that JSON
+as `MPP <base64url(JSON)>`:
+
+```javascript
+const credential = {
+  ...challenge,
+  method: { scheme: "stripe", type: "spt" },
+  token: issuedSpt
+};
+```
+
+Keep `challengeId`, `created`, and `signature` unchanged and at the top level;
+do not nest the challenge. Keep the credential private and retry the same
+purchase arguments before the challenge expires.
 The typed `fulfillment_mode` purchase input accepts `carrier` or `hand-to-hand`;
 carrier is the physical-good default. Choose hand-to-hand only when the listing
 returns `local_pickup_enabled=true`. Pickup requires no shipping address; its
@@ -164,6 +230,20 @@ challenge identifies `fulfillmentMode="hand-to-hand"` and includes `itemCents`,
 on the payment-credential retry. Changing mode requires a fresh challenge.
 Successful checkout includes `payment_receipt.orderId`; pass that value as
 `order_id` to `get_shopmine_order` and subsequent order actions.
+Seller order reads and sales history include the recipient name and postal
+address when needed for shipping, without the buyer's phone number or email address.
+Seller order reads and sales rows keep `amount` as the buyer total. They can
+also return `seller_platform_fee_cents`, `seller_shipping_charge_cents` after
+shipping credits, and `seller_net_cents` for recorded proceeds.
+`seller_proceeds` reports this order's currency and pending, held, available,
+payout-pending, and paid-out amounts; it is not an account-wide cashout balance.
+Recorded proceeds exclude costs the seller pays outside ShopMine, such as
+self-purchased postage. `outbound_shipping_mode` identifies the buyer or seller
+as payer, and `seller_provided_label` distinguishes seller-provided from
+ShopMine-generated labels, using the purchase terms when recorded. Unavailable
+values are omitted, not estimated. These fields are not returned to buyers.
+For carrier orders, the buyer is charged when outbound shipping is confirmed. Ship only after the order shows label_generated or label_uploaded. If confirmation is pending, retry the same returned shipping action and wait; do not buy another label or ship yet.
+
 Carrier purchases require a
 ship-to address with `name`, `street`, `city`, `region`, `country`, and
 `postal_code`, unless ShopMine can use the OBO owner's saved profile shipping address
@@ -173,8 +253,7 @@ payment challenge or charge. The
 x402/MPP challenge includes the total amount plus
 `itemCents`, `platformFeeCents`, and buyer-paid outbound `shippingCents`.
 Buyer-paid ShopMine outbound postage is included in carrier checkout.
-Seller-paid ShopMine outbound postage is charged to the seller account without a
-separate payment challenge. Order responses expose
+Follow the order’s configured payer and displayed shipping price. Order responses expose
 caller-scoped action descriptors in `seller_next_actions` or
 `buyer_next_actions`; each names a callable tool, prefilled arguments, and any
 `required_inputs`. Paid carrier sales expose one of
@@ -183,24 +262,30 @@ available pre-carrier cancellation action. When `cancellation_penalty` is
 present, explain that charge to the human before cancellation. Return labels use
 `buy_shopmine_shipping_label`; label history and refunds use
 `list_shopmine_shipping_labels` and
-`refund_shopmine_shipping_label`. Sellers may pass `cover_returns=true` only on
-outbound generation to pay only for future buyer return coverage. After a
-return request, the buyer purchases the return label unless that seller-funded
-coverage applies. Return-label invoices expose shipping label, platform fee,
-and total; seller-funded coverage exposes return coverage and its platform fee.
-Direct label refunds apply only to separately purchased return labels;
-checkout-funded outbound labels are handled through seller order cancellation.
+`refund_shopmine_shipping_label`. Label history also provides the latest recorded
+carrier tracking status for outbound and return shipments, separately from order
+status. After a return request, the buyer gets the return label through the same
+action. The return permission, payer and policy agreed at purchase remain in
+effect for that order. Buyer-paid labels return a payment challenge; seller-paid
+labels do not require buyer payment. Return-label prices expose shipping label,
+platform fee and total.
+The authorized order buyer can request eligible return-label refunds; approved refunds go to the payer.
+Checkout-funded outbound labels are handled through seller order cancellation.
 Shipping-ID actions require the OBO scope to match the credential owner's role
 on the related order: `buy` for the buyer and `sell` for the seller.
 Buyer purchase history uses `list_shopmine_purchases`; seller sales history uses
 `list_shopmine_sales`. Delivered carrier-shipped physical-good purchases with
 `allows_returns=true` can request a return, when offered in `buyer_next_actions`, with
 `request_order_return`, which moves the order to `return_requested`; the buyer
-then purchases a return label with `buy_shopmine_shipping_label(direction="return")`.
-If seller coverage exists, this creates the label without charging the buyer.
+then gets a return label with `buy_shopmine_shipping_label(direction="return")`.
+The policy agreed at purchase determines whether the buyer or seller pays.
 Invalid states return the normal transition error. Order responses
 include `status_str` for user-facing status labels such as `Return Requested`
 and `Cancelled`, and may include `status_hint` for user-facing next steps.
+Carrier returns must be requested and handed to the carrier within the original
+fourteen days after delivery. A request, label or retry does not pause, reset or
+extend that deadline. A request or unused label alone does not trigger a refund;
+follow the order deadline and returned actions.
 Physical-good orders retain their purchase-time `allows_returns` value; changing
 the listing later does not change existing orders. False removes carrier-return
 requests and return-label actions. Hand-to-hand returns remain unavailable
@@ -219,7 +304,7 @@ order is `return_label_sent`, buyers ship with the
 provided ShopMine return label and carrier scans drive return progress. Do not ask
 buyers to report `return_tracking`. Prefer `status_hint` when explaining the
 current state or next action.
-For physical-good item purchases, `paid` means checkout succeeded and inventory
+For fixed-price physical-good purchases, or winning auction purchases, `paid` means the purchase is confirmed and inventory
 is reserved. For carrier orders, a ShopMine-generated outbound label moves the order to
 `label_generated`; a seller-provided label moves it to `label_uploaded`. All
 three carrier pre-ship states share the same 48-hour ship-by deadline from `paid`.
@@ -280,3 +365,13 @@ List configured MCP servers:
 codex mcp list
 claude mcp list
 ```
+
+## Auction sale type
+
+Physical goods choose `sale_type="fixed_price"` (default) or `"auction"` independently of fulfillment. Fixed-price creation requires `price_usd`; auction creation requires `auction_starting_bid_cents` (at least 100 USD cents). The optional `auction_maturity_seconds` supports 1–129600 seconds and defaults to one day. These are editable seller listing fields. Auction listing reads expose `auction_current_bid_cents`, `auction_next_bid_cents`, `auction_minimum_increment_cents`, `auction_maturity_seconds`, `auction_matures_at` and `auction_round_state` along with the starting bid.
+
+For MPP auctions reuse `buy_shopmine_listing` with `bid_amount_cents` and a stable `request_id` of at most 200 characters. Keep the same ID, bid, fulfillment and address when retrying payment proof. Card bidding uses `get_shopmine_payment_url` with `bid_amount_cents`; the human approves the binding bid on ShopMine. The listing chooses its sale type; clients cannot set order state. A winning bid is binding. Each accepted higher bid restarts the countdown. Check the owned order for `bid_placed` (leading), `outbid`, `bid_rejected`, or `paid` (winner), and use its bid maturity timestamp. Authorization alone does not prove leadership. A `processing` result means retry the same intent or read its original order; do not create another bid to resolve uncertainty. A pending hold release is not confirmation that funds are available.
+
+Bidding starts no shipping or pickup deadline. The winning purchase starts its displayed fulfillment deadline and keeps its accepted fulfillment and return terms. Sellers may withdraw an auction before a win; afterward the ordinary pre-fulfillment cancellation and return rules apply. Remaining or newly available stock can be offered in a fresh auction while earlier winners fulfill. Old bids never carry into that auction. See the [Terms](https://shopmine.ai/home/terms/) and [Privacy Policy](https://shopmine.ai/home/privacy/) for obligations and bid-data visibility.
+
+Refunds may be processing or issued. Follow the order’s current refund guidance. An issued refund goes to the original payment method; the bank may take 5–10 business days to show it. If the order says the refund needs attention, contact ShopMine support. A released payment hold is separate from a refund.
