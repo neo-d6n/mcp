@@ -267,8 +267,11 @@ Listing creation tools require `sell` scope:
 
 - `prepare_shopmine_listing_uploads(files)`: prepare one batch of one to four files. Each manifest entry contains `filename` and positive `size_bytes`. Clients with file and HTTP access upload once before the returned expiry using the exact URL, method, headers, and multipart field name. Keep the returned headers private; a successful transfer returns `files: [{filename, upload_id}]`. Files must match the prepared manifest. Total file bytes must not exceed 100 MB. If preparation expires before uploading, prepare a new batch. Other clients may supply inline base64; local paths and remote file URLs are not inputs.
 
-- `create_physical_good_listing(files, shop_name, title, description, condition, price_usd=None, sale_type=None, auction_starting_bid_cents=None, auction_maturity_seconds=None, inventory_count=None)`: save core details and media in an explicitly named existing seller-owned Shop. Returns a real `datum_id`, `state=needs_fulfilment`, and a prefilled `next_actions` descriptor. Supply the binary upload response’s `files` or inline base64 files; do not pass `media_ids`. Never infer the destination Shop from the current session.
-- `configure_shopmine_listing_fulfilment(datum_id, config)`: finish setup on that same owned physical good in `needs_fulfilment`. Config contains complete `outbound` and `inbound` objects; pickup belongs to outbound, and the address is shared. Returns `reviewing` promptly. Read `get_shopmine_listing` for the outcome: `public` or `private` with correction/retry guidance. Use this same tool for later fulfillment edits. Read both current shipping rules and submit both together, preserving all unchanged settings including return permission and pickup. Generic listing updates cannot change fulfillment.
+- `create_physical_good_listing(files, shop_name, title, description, condition, price_usd=None, sale_type=None, auction_starting_bid_cents=None, auction_maturity_seconds=None, inventory_count=None, shipping_enabled=True, local_pickup_enabled=False)`: save core details/media in an explicitly named existing seller-owned Shop. At least one delivery option must be true. Returns real `datum_id`, `state=needs_fulfilment` and computed `next_actions`. Use upload response `files` or inline base64, not `media_ids`; never infer the destination Shop.
+- `configure_shopmine_listing_shipping_source(datum_id, source)`: save `source={from_address,item_size}` when shipping is enabled. Address requires name, street, city, region, postal_code and country; package is envelope, small, medium or large.
+- `configure_shopmine_listing_pickup(datum_id, pickup)`: save pickup `{postal_code,phone,instructions}` when pickup is enabled. Phone uses international format. Shipping source and pickup details may be offered concurrently; save either first. Each save returns updated next actions or reviewing when all applicable setup is complete.
+- `get_shopmine_shipping_quote(datum_id, destination)`: optional when shipping is enabled and source is saved. Supply all six destination fields. Returns `{datum_id,currency,amount_cents,is_estimate:true}` for the all-in label estimate; no label purchase, payment or publication. Final price can change.
+- `configure_shopmine_listing_shipping_details(datum_id, config)`: save shipping and return preferences when offered after source and any enabled pickup details are saved. Config contains `outbound` and `inbound` policy choices only; source and pickup details are saved separately and must not be requested again. Pickup-only listings skip shipping setup. Follow returned actions, then read the same listing for review outcome. Use the same tools for later edits; never create again to retry. These tools require sell scope and ownership.
 
 Follow **create → configure → read outcome**. Draft edits and media changes do not publish an unfinished listing. Resume using the ID from owner listings. Never invent an ID, substitute an update for creation, or create another listing after a configuration timeout/conflict: re-read the same ID. Ordinary shipping and visibility updates cannot bypass setup. While reviewing, writes are blocked.
 
@@ -278,7 +281,7 @@ For physical goods, include `inventory_count` when the seller gives on-hand
 quantity while creating the listing. It is the total units currently available
 for sale; updates set the final count, not an increment.
 
-In `config`, outbound and inbound `mode` identify the payer (`buyer` or `seller`). Set `outbound.seller_provided_label=false` for ShopMine labels, with `item_size` and complete `from_address`. With seller-provided labels, supply `seller_flat_shipping_fee` in cents. When `inbound.allows_returns=true` (the default), `item_size` and that same address are required even for seller-provided outbound labels. Set false only when the seller declines carrier returns. Hand-to-hand returns remain unavailable.
+In `config`, outbound and inbound `mode` identify the payer (`buyer` or `seller`). `outbound.seller_provided_label=false` means ShopMine supplies the label; true means the seller supplies it and requires `seller_flat_shipping_fee` in cents. `inbound.allows_returns` defaults to true; set false only when the seller declines carrier returns. Saved source is shared by outbound shipping and returns. Hand-to-hand returns remain unavailable.
 For carrier fulfillment when the outbound payer is the buyer, the item-purchase challenge and response
 charge item + platform fee + outbound `shippingCents`. Seller-paid shipping is
 omitted from buyer checkout. After requesting an eligible return, the buyer gets
@@ -287,10 +290,16 @@ remain in effect; the buyer or seller pays according to that policy.
 MCP/A2A carrier buyers provide `shipping_address` up front or use the OBO owner's
 saved profile shipping fallback when available.
 
-Sellers may additionally offer local pickup with `local_pickup_enabled=true`,
-`local_pickup_postal_code`, `local_pickup_phone` (international format, e.g. +14155550123), and
-`local_pickup_buyer_notes` in `config.outbound`. Availability and area are public; pickup notes are
-shared with the purchaser only through the order after it becomes `paid`.
+Purchases default to carrier when `shipping_enabled=true`, otherwise hand-to-hand
+for pickup-only listings. Explicit carrier requires shipping enabled; pickup
+requires pickup enabled and needs no shipping address or shipping charge.
+
+Sellers choose carrier shipping and pickup independently with `shipping_enabled` and
+`local_pickup_enabled`; at least one must be enabled. These flags may also be
+changed through editable listing details. Pickup details belong to the separate
+`configure_shopmine_listing_pickup` tool, not shipping preferences. Availability
+and area are public; contact details and instructions are shared with the
+purchaser only through the paid order.
 
 Only `state=public` listings are discoverable and buyable. Saving a draft or accepting configuration is not publication.
 
@@ -346,7 +355,7 @@ Tell the buyer before purchase when `allows_returns=false` (returns not accepted
 
 Physical-good listing reads omit full shipping rules. Sellers read them with
 `get_outbound_shipping_rule` and `get_inbound_shipping_rule`, then call
-`configure_shopmine_listing_fulfilment` with both complete rules, preserving
+`configure_shopmine_listing_shipping_details` with both complete preference objects, preserving
 unchanged settings. Both outbound and inbound
 mode use `buyer` or `seller`. Package-size verification
 can hide a listing with owner-only

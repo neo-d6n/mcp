@@ -77,10 +77,25 @@ Send one binary multipart batch before its expiry. Call
 `create_physical_good_listing` with core details and the upload response’s `files`.
 Existing inline base64 files remain supported. Each file must have exactly one
 source key; both keys are invalid even if one is empty or null.
-It returns the real `datum_id`, `state=needs_fulfilment`, and the next action
-with that ID prefilled. Call `configure_shopmine_listing_fulfilment(datum_id,
-config)` with complete `outbound` and `inbound` rules; pickup belongs to outbound,
-and both share `from_address`. The same tool also replaces fulfillment on existing listings, except during review.
+Choose `shipping_enabled` (default true) and `local_pickup_enabled` (default false)
+on create; at least one must be enabled. The response gives a real `datum_id`,
+`state=needs_fulfilment` and computed `next_actions`. Follow those actions on the
+same ID. When both delivery options are enabled, shipping source and pickup
+setup are available concurrently; save either first.
+`configure_shopmine_listing_shipping_source(datum_id, source)` saves
+`from_address` (name, street, city, region, postal_code, country) and `item_size`
+(envelope, small, medium, large). `configure_shopmine_listing_pickup(datum_id,
+pickup)` saves `postal_code`, international-format `phone`, and `instructions`.
+Shipping preferences become available after source and any enabled pickup details
+are saved; pickup-only listings need no shipping setup. Save shipping/return
+policy choices through `configure_shopmine_listing_shipping_details(datum_id, config)`;
+its outbound/inbound objects contain neither source nor pickup details.
+Saves return updated actions or `reviewing` when applicable setup is complete.
+With shipping enabled and source saved, optional `get_shopmine_shipping_quote(datum_id,
+destination)` accepts a complete six-field destination and returns
+`{datum_id,currency,amount_cents,is_estimate:true}` for the all-in label estimate.
+No label purchase, payment or publication occurs; final price can change.
+These tools require sell scope and ownership; reuse saved details without asking again.
 Read the same listing for reviewing → public or private with correction guidance.
 Drafts remain editable and resumable. Only public listings are discoverable and
 buyable. On conflict or a lost response, re-read that ID; never create another.
@@ -98,14 +113,15 @@ create/update/shipping field contract. Listing updates use
 `shop_name` moves an owned listing to another existing Shop owned by that seller;
 physical-good listing reads omit full shipping rules. Sellers read them with
 `get_outbound_shipping_rule` and `get_inbound_shipping_rule`, then use
-`configure_shopmine_listing_fulfilment` with both complete rules.
-Each rule's `mode` is `buyer` or `seller`. Outbound requires `item_size`
-and `from_address` for ShopMine labels; seller-provided labels require
-`seller_flat_shipping_fee` in cents and also package/address when returns are
-allowed. Return permission is `config.inbound.allows_returns`. Preserve unchanged
-values, including pickup in outbound: `local_pickup_enabled`, postal code,
-contact phone, and buyer notes. Omitting pickup disables it. Fulfillment fields
-are excluded from generic updates and `editable_fields`.
+`configure_shopmine_listing_shipping_details` with both complete preference objects.
+Each rule's `mode` selects the payer (`buyer` or `seller`).
+`seller_provided_label=false` means ShopMine supplies the label; true means seller
+supplies it and requires `seller_flat_shipping_fee` in cents. Saved package and
+address are shared by shipping and returns.
+Return permission is `config.inbound.allows_returns`. Preserve unchanged
+preferences. Pickup details are saved separately; delivery-option flags may be
+changed through editable listing details. Detailed fulfillment fields remain
+excluded from generic updates and `editable_fields`.
 Listing discovery and detail reads expose `allows_returns`. Tell the buyer
 before purchase when it is false (returns not accepted). If package-size or
 outbound-shipping verification hides a physical-good listing,
