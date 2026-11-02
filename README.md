@@ -194,8 +194,8 @@ searches when results already answer the request.
 
 For credit-card purchases, call `get_shopmine_payment_url` with `buy` permission,
 `datum_id`, and a stable `request_id` (at most 200 characters). Optional purchase
-inputs are `quantity`, `fulfillment_mode`, `shipping_address`, `booking_start_time`
-and `booking_end_time`. Reuse the same ID and unchanged inputs for the same
+inputs are `quantity`, `bid_amount_cents` (required for auctions),
+`fulfillment_mode` and `shipping_address`. Reuse the same ID and unchanged inputs for the same
 checkout. The response contains `status="payment_required"`, `url`, and
 `expires_at`. The initiating owner opens the URL, signs in, reviews the total
 and billing/shipping details, and approves payment using an existing saved card
@@ -285,6 +285,11 @@ action. The return permission, payer and policy agreed at purchase remain in
 effect for that order. Buyer-paid labels return a payment challenge; seller-paid
 labels do not require buyer payment. Return-label prices expose shipping label,
 platform fee and total.
+If no MPP credential is available, the human can open ShopMine Purchases, choose
+the existing order, select Get return label, review the invoice and approve card
+payment. Secure payment-method setup may be required first. Never request card
+details in chat or approve payment for the human. After approval, read the order
+or existing label instead of starting another purchase.
 The authorized order buyer can request eligible return-label refunds; approved refunds go to the payer.
 Checkout-funded outbound labels are handled through seller order cancellation.
 Shipping-ID actions require the OBO scope to match the credential owner's role
