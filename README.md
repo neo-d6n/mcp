@@ -212,19 +212,15 @@ on the secure browser checkout page like another card. Card checkout and any
 available browser wallet or Link option do not issue an SPT; obtain an SPT
 through the separate MPP/SPT flow when using `buy_shopmine_listing`.
 
+A created order is not a confirmed purchase. If its payment challenge or checkout link expired, resume the original purchase with the same request ID and unchanged inputs to obtain a fresh challenge or link; do not start a second purchase. An expired order cannot be resumed: check the listing before starting a new purchase if still wanted.
+
 MCP and A2A also expose these account operations:
 
 - `setup_shopmine_payment_method()` requires `buy` or `sell` and returns `human_card_action_required` with the initiating owner's ShopMine Payments URL. The owner saves card/billing details there and can manage shipping details in Payments. Read `get_shopmine_payment_account` after setup; opening the link does not prove readiness.
-- `setup_shopmine_payment_method_exp(card, billing_details, accept_off_session_terms, shipping=None)` experimentally saves a card on the authenticated owner's profile. It requires `buy` or `sell`, verified email and explicit permission to save the card for future authorized payments. `card` contains string `number`/`cvc` and integer `exp_month`/`exp_year`; `billing_details` contains `name`, `address`, optional `email`/`phone`; optional `shipping` contains `name`, `address`, optional `phone`. Both addresses use `line1`, optional `line2`, `city`, `state`, `postal_code` and two-letter `country`. Consent must be true. Omitted shipping stays unchanged. The result has `status` (`ready`, `requires_browser`, `pending`, `failed`), masked readiness, `shipping_saved`, and `setup_url` when follow-up is needed. If supplied shipping was not saved, check it in Payments. Neither setup tool makes a purchase. Prefer the browser tool; use `_exp` only with a client configured for sensitive card data. Never place card details in ordinary chat or logs, or automatically replay an uncertain result.
 - `setup_shopmine_payout_account(country="US", display_name=None)` requires `payout` scope and verified email, supports US accounts, and returns `human_payout_action_required` with a secure setup URL. Supply only known plain display text; the human provides identity and bank details and accepts agreements.
 - `close_shopmine_payout_account(payout_account_ref)` requires `payout` scope, verified email, and an explicit owner request to close the payout account. Read the current opaque reference from `seller.payout_account_ref` in `get_shopmine_payment_account`. All balances and pending payouts must be cleared first. Success returns `status="closed"` and the same reference; financial history is retained. Repeating that closed reference is safe and cannot close a replacement account. Closure never cashes out earnings automatically.
 - `cashout_shopmine_earnings(currency, request_id)` requires `payout`, selects all eligible earnings in one currency, and reuses the stable ID for retries. There is no partial-amount input. A pending result is not bank receipt; follow `bank_delivery_action_required` when returned and check the original cashout. A failed cashout includes a safe message, error_code and retry timing; its reference remains in history. Cashout submission returns 503 for temporary difficulties (MCP includes status_code); account reads still succeed. A failed request stays failed on replay; start a new cashout only when eligible. The returned delay is an eligibility limit, not a promise of success.
 - `get_shopmine_payment_account(cursor=None, cashout_request_id=None)` returns masked setup readiness and authorized financial sections with `included_sections`. Buy permits buyer sections and statements; payout permits seller balances, statements, cashout results and `seller.payout_account_ref` (null when no payout account is attached); sell alone permits common readiness. Use `next_cursor` for the next statement page.
-
-For `_exp` on A2A, use `message/send` or `message/stream` with exactly one user
-DataPart whose `data` is `{"tool":"setup_shopmine_payment_method_exp","arguments":{...the same inputs...}}`.
-Read its DataPart result. Do not send a conversational request or mixed parts.
-Additional card verification may require browser setup.
 
 Payout permission means: Set up payout details, manage or close your payout
 account, and request payouts of your eligible earnings. Sell and payout do not authorize a purchase. Open returned
@@ -268,6 +264,8 @@ self-purchased postage. `outbound_shipping_mode` identifies the buyer or seller
 as payer, and `seller_provided_label` distinguishes seller-provided from
 ShopMine-generated labels, using the purchase terms when recorded. Unavailable
 values are omitted, not estimated. These fields are not returned to buyers.
+Label URLs grant private access. Keep them out of logs, public messages and routine status replies. When the authorized caller needs to print, provide a usable label link privately; do not remove or redact the link needed for printing.
+
 For carrier orders, the buyer is charged when outbound shipping is confirmed. Ship only after the order shows label_generated or label_uploaded. If confirmation is pending, retry the same returned shipping action and wait; do not buy another label or ship yet.
 
 Carrier purchases require a
@@ -421,4 +419,4 @@ Bidding starts no shipping or pickup deadline. The winning purchase starts its d
 
 Refunds may be processing or issued. Follow the order’s current refund guidance. An issued refund goes to the original payment method; the bank may take 5–10 business days to show it. If the order says the refund needs attention, contact ShopMine support. A released payment hold is separate from a refund.
 
-Physical-good creation accepts optional `dimensions={x,y,z,weight?}`: positive x/y/z in inches and weight in ounces. Omit measurements for extraction. Shipping-enabled listings stay private if x/y/z cannot be obtained. They can publish with x/y/z once other checks pass. Read the owner blocker, improve description/media or update dimensions, then request review only when offered. Pickup-only listings do not require measurements. Carrier quotes and labels require both x/y/z and weight.
+Physical-good creation accepts optional `dimensions={x,y,z,weight?}`: positive x/y/z in inches and weight in ounces. Omit measurements for extraction. Shipping-enabled listings stay private if x/y/z cannot be obtained. They can publish with x/y/z once other checks pass. Read the owner blocker, improve description/media or update dimensions, then request review only when offered. Pickup-only listings do not require measurements. Carrier quotes and labels require both x/y/z and weight. Follow setup on the same listing and let reviewing finish before asking for missing measurements. Read the current listing again; if extraction fails, improve the physical description/media or ask only for details still missing. Never invent measurements. If only weight is missing, automatic item details may still be finishing; read the current listing again before editing. If weight remains missing, improve the description/media or provide measurements.
