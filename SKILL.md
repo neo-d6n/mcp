@@ -1,7 +1,7 @@
 ---
 name: shopmine
-description: Optional shortcut to install or reauthorize the ShopMine MCP server for the active AI coding agent using a human-created ShopMine agent auth code.
-argument-hint: [reauthorize|replace-keys]
+description: Connect or reauthorize the active AI client through ShopMine MCP OAuth, manage refresh securely, and verify account, environment and approved scopes.
+argument-hint: [reauthorize]
 allowed-tools: Bash, AskUserQuestion
 ---
 
@@ -10,32 +10,18 @@ Copyright 2026 Neosphere Inc
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# ShopMine MCP Install Shortcut
+# ShopMine MCP OAuth Setup
 
-This skill is optional. ShopMine does not require skill installation: agents can
-discover `https://shopmine.ai/.well-known/agent.yml` or `https://shopmine.ai/llms.txt`,
-claim a human-created agent auth code, and configure `https://mcp.shopmine.ai/mcp` directly. Use this skill only as
-a convenience installer or reauthorization helper for clients that support
-skills. After install, the ShopMine MCP server itself exposes the working tools.
+This optional skill helps connect or reauthorize the active AI client through
+ShopMine OAuth. No skill installation is required. Discover the current public
+contract at `https://shopmine.ai/.well-known/agent.yml` or
+`https://shopmine.ai/llms.txt`, and connect to `https://mcp.shopmine.ai/mcp`.
 
-ShopMine grants access through a human-created six-digit agent auth code. The
-claimed result is a `cli_ke...` OBO credential with the approved combination of
-`buy`, `sell`, and/or `payout`. Payout means: Set up payout details, manage or close your payout account, and request payouts of your eligible earnings. The six-digit code is not the final credential and is safe to ask for;
-the returned `auth_key` is the credential and must stay secret. Do not ask the
-user to paste credentials.
-
-Native MCP clients such as ChatGPT and Claude can use OAuth discovered from
-the MCP endpoint. Their human sign-in and consent must remain in the app's
-browser flow. A2A also advertises OAuth in its Agent Card and protected-resource
-discovery. Use S256 PKCE and the advertised resource for authorization and token
-exchange. OAuth access works only on the approved endpoint and can be revoked.
-Clients should use the supplied opaque `refresh_token` at the discovered token
-endpoint and save the replacement response. Do not invent OAuth URLs or automate
-human consent. The agent-code flow remains available on both surfaces.
-
-This coding-agent shortcut uses the existing agent-code flow: owner creates a six-digit code at
-`/aiauth/create`, agent claims it once at `/aiauth/claim/{code}`, then the
-agent uses the returned scoped Bearer credential.
+MCP and A2A use OAuth with human sign-in and explicit consent. Discover OAuth
+metadata from the selected endpoint; A2A also advertises OAuth in its Agent Card.
+Use S256 PKCE and the advertised resource for authorization and token exchange.
+Access is valid only for the approved resource. Keep access and refresh tokens
+private; never ask the human to paste credentials or automate their consent.
 
 Both MCP and A2A identify the connection as ShopMine Test or ShopMine Production.
 Keep credentials and listing/order IDs separate between environments. Invalid
@@ -46,187 +32,42 @@ Listing files require `filename` and exactly one nonempty `upload_id` or
 `file_base64`; `content_type` is optional. Prefer the batch upload flow below
 for local files; do not read or copy large base64 strings into chat.
 
-## What To Install
+## Connect Through OAuth
 
-Detect the active client before doing anything:
+1. Identify the active AI client and use its supported remote MCP setup to add
+   `https://mcp.shopmine.ai/mcp`. Use the client's documented OAuth connection
+   controls; do not invent setup commands or authorization URLs.
+2. Request only the permissions needed for the user's task: `buy` for purchases
+   and buyer orders; `sell` for Shops, listings and seller fulfillment; `payout`
+   for payout setup, account management/closure and eligible earnings payouts;
+   `support` for seller messaging. Omitted scopes default to
+   `buy sell`; existing grants gain no permissions automatically. Sell does not
+   authorize purchases. Let the human approve the requested scopes in ShopMine.
+3. Complete the client's browser sign-in and consent handoff. Card purchases
+   still require the human to review and approve each checkout on ShopMine;
+   saving a card is optional.
+4. Let the client store OAuth tokens securely and complete MCP initialization.
+   Use runtime discovery for the live tool catalog, then call `profile_info()`
+   to verify the intended account, environment and granted `token_scope`.
+   A saved connection or an opened browser alone does not prove readiness.
 
-1. If any `CODEX_*` environment variable exists, configure **Codex**.
-2. Else if any `CLAUDE_*` or `CLAUDE_CODE_*` environment variable exists, configure **Claude Code**.
-3. Else if only `codex` or only `claude` exists on `PATH`, configure that client.
-4. Else ask which client to configure.
+## Refresh And Reauthorize
 
-Use the ShopMine MCP endpoint:
+Use the supplied opaque `refresh_token` at the discovered token endpoint with
+`grant_type=refresh_token`, the registered client and the same resource. Save the
+replacement response, including its refresh token, securely. Let clients with
+native OAuth support manage refresh. A revoked or invalid grant requires a new
+human sign-in and consent; a temporary 503 requires retry without replacing
+credentials. For additional permissions, reconnect through the client's OAuth
+controls and obtain explicit human consent. Owners can review and revoke access
+in ShopMine account settings.
 
-- `https://mcp.shopmine.ai/mcp`
+Reauthorizing the same named client for the same account replaces that client's
+previous connection. Different client names use separate agent slots, subject
+to the account's connection limit.
 
-Use the ShopMine agent auth HTTP origin:
-
-- `https://shopmine.ai`
-
-## Install Flow
-
-If `$ARGUMENTS` is `reauthorize` or `replace-keys`, follow the authenticated
-flow and replace the existing `shopmine` MCP entry for the active client.
-
-### 1. Ask For Scope
-
-Ask the user whether this agent should:
-
-- `buy` for purchases
-- `sell` for listing and sales management
-- `payout` to set up payout details, manage or close the payout account, and request payouts of eligible earnings
-
-Request a combination only when the task needs it. Sell never permits buying.
-Omitted OAuth scopes still default to buy sell; existing credentials gain no new
-permissions automatically. Card purchases require the owner to review and approve
-each checkout on ShopMine; saving a card is optional.
-
-Do not ask for raw scope strings if the user already answered in normal language.
-
-Build a stable `client_id`:
-
-- Codex: `Codex <project-name> <scope-label>`
-- Claude Code: `Claude Code <project-name> <scope-label>`
-
-Keep this value short and readable.
-
-### 2. Ask The Human For A ShopMine Agent Auth Code
-
-Ask the human to open:
-
-```text
-https://shopmine.ai/aiauth/create
-```
-
-Tell them to log in, enter the suggested agent name (`<CLIENT_ID>`), select only the requested `buy`, `sell`, and/or `payout` permissions, click Create, and return with the six-digit code. If they already have a code, use it.
-
-The owner may click Cancel before creating the code. A created code is valid
-for 1 hour and can be claimed once. A successful claim returns a credential
-that currently expires after 72 hours. Reauthorizing with the same owner and
-agent name replaces older active ShopMine OBO credentials for that agent name.
-
-### 3. Claim The Code
-
-Do not run a standalone claim request. Its success response contains the secret
-credential. Instead, use the single claim-and-configure block in the next step
-so the response is captured in a private temporary file and the credential
-never appears in terminal or tool output.
-
-Results:
-
-- `404`: the code expired, was mistyped, or was already consumed. Ask the human to create a new code.
-- Approved result: contains `auth_key`, `client_id`, `scopes`, `expiration_time`. Use `auth_key` immediately. The result is one-shot and the credential expires after 72 hours.
-
-Never print the full credential.
-
-### 4. Claim And Configure MCP Without Echoing The Credential
-
-Set `ACTIVE_CLIENT` from the detection step, replace `<CODE>` with the safe
-six-digit code, and run this entire block as one shell action. For Claude Code,
-ask whether to use `local` (this project) or `user` (all projects) and set
-`CLAUDE_SCOPE` accordingly. Do not split the claim from configuration, enable
-shell tracing, print the response file, or print `CLI_KEY`.
-
-```bash
-ACTIVE_CLIENT='<codex-or-claude>'
-CLAUDE_SCOPE='<local-or-user>'
-CLAIM_CODE='<CODE>'
-
-umask 077
-claim_file="$(mktemp)"
-chmod 600 "$claim_file"
-trap 'unset CLI_KEY; rm -f "$claim_file"' EXIT
-
-claim_status="$(curl -sS -o "$claim_file" -w '%{http_code}' -X POST \
-  "https://shopmine.ai/aiauth/claim/${CLAIM_CODE}")"
-if [ "$claim_status" != '200' ]; then
-  printf 'ShopMine authorization failed (HTTP %s). Create a new code and retry.\n' "$claim_status" >&2
-  exit 1
-fi
-
-CLI_KEY="$(python3 - "$claim_file" <<'PY'
-import json
-import re
-import sys
-
-try:
-    with open(sys.argv[1], encoding="utf-8") as response_file:
-        key = json.load(response_file).get("auth_key", "")
-except (OSError, ValueError, AttributeError) as exc:
-    raise SystemExit("ShopMine returned an invalid authorization response") from exc
-
-if not isinstance(key, str) or not re.fullmatch(r"cli_ke[A-Za-z0-9_-]+", key):
-    raise SystemExit("ShopMine authorization response did not contain a valid credential")
-sys.stdout.write(key)
-PY
-)"
-rm -f "$claim_file"
-
-case "$ACTIVE_CLIENT" in
-  codex)
-    mkdir -p "$HOME/.config/shopmine"
-    chmod 700 "$HOME/.config/shopmine"
-    printf "export SHOPMINE_MCP_BEARER='%s'\n" "$CLI_KEY" > "$HOME/.config/shopmine/mcp.env"
-    chmod 600 "$HOME/.config/shopmine/mcp.env"
-
-    PROFILE="$HOME/.zshrc"
-    if [ -n "${BASH_VERSION:-}" ]; then PROFILE="$HOME/.bashrc"; fi
-    if ! grep -q 'ShopMine MCP bearer for Codex' "$PROFILE" 2>/dev/null; then
-      printf '\n# ShopMine MCP bearer for Codex\nsource "$HOME/.config/shopmine/mcp.env"\n' >> "$PROFILE"
-    fi
-
-    . "$HOME/.config/shopmine/mcp.env"
-    codex mcp remove shopmine 2>/dev/null || true
-    codex mcp add shopmine --url "https://mcp.shopmine.ai/mcp" \
-      --bearer-token-env-var SHOPMINE_MCP_BEARER
-    ;;
-  claude)
-    case "$CLAUDE_SCOPE" in local|user) ;; *) printf 'Choose Claude scope local or user.\n' >&2; exit 1 ;; esac
-    claude mcp remove shopmine --scope "$CLAUDE_SCOPE" 2>/dev/null || true
-    claude mcp add --transport http --scope "$CLAUDE_SCOPE" \
-      --header "Authorization: Bearer ${CLI_KEY}" \
-      shopmine "https://mcp.shopmine.ai/mcp"
-    ;;
-  *)
-    printf 'Choose ACTIVE_CLIENT=codex or ACTIVE_CLIENT=claude.\n' >&2
-    exit 1
-    ;;
-esac
-
-unset CLI_KEY
-printf 'ShopMine MCP credential configured; secret value was not printed.\n'
-```
-
-Codex stores the bearer in `~/.config/shopmine/mcp.env` with mode `0600` and
-references it through an environment variable. Claude Code stores the header
-in its selected private MCP configuration. Never use Claude project scope when
-that would write a credential to a shareable `.mcp.json`.
-
-### 5. Verify
-
-The user must restart the active AI client before new MCP tools appear.
-
-After restart:
-
-```bash
-# Codex
-. "$HOME/.config/shopmine/mcp.env" 2>/dev/null || true
-codex mcp list
-codex mcp get shopmine
-
-# Claude Code
-claude mcp list
-claude mcp get shopmine
-```
-
-Then ask the agent to call the read-only account tool:
-
-```text
-profile_info()
-```
-
-Expected: the call completes without an auth/configuration error. An empty list
-is valid.
+For `reauthorize`, follow this same OAuth flow for the active client's ShopMine
+connection, then verify identity and scopes with `profile_info()`.
 
 ## Current MCP Tools
 
@@ -242,7 +83,7 @@ Messages must be nonempty and at most 500 characters.
 
 Account/profile tool:
 
-- `profile_info()`: return minimal ShopMine account info for the authenticated caller, including `username`, `email_verified`, and `token_scope` when the bearer credential is an OBO token.
+- `profile_info()`: return minimal ShopMine account info for the authenticated caller, including `username`, `email_verified`, and the approved `token_scope`.
 
 Shop tools:
 
@@ -288,7 +129,7 @@ For physical goods, include `inventory_count` when the seller gives on-hand
 quantity while creating the listing. It is the total units currently available
 for sale; updates set the final count, not an increment.
 
-In `config`, outbound and inbound `mode` identify the payer (`buyer` or `seller`). `outbound.seller_provided_label=false` means ShopMine supplies the label; true means the seller supplies it and requires `seller_flat_shipping_fee` in cents. `inbound.allows_returns` defaults to true; set false only when the seller declines carrier returns. Saved source is shared by outbound shipping and returns. Hand-to-hand returns remain unavailable.
+In `config`, outbound and inbound `mode` identify the payer (`buyer` or `seller`). `outbound.seller_provided_label=false` means ShopMine supplies the label; true means the seller supplies it and requires `seller_flat_shipping_fee` in integer US cents (300 = $3.00); collect the seller's dollar amount and convert to cents before calling. `inbound.allows_returns` defaults to true; set false only when the seller declines carrier returns. Saved source is shared by outbound shipping and returns. Hand-to-hand returns remain unavailable.
 For carrier fulfillment when the outbound payer is the buyer, the item-purchase challenge and response
 charge item + platform fee + outbound `shippingCents`. Seller-paid shipping is
 omitted from buyer checkout. After requesting an eligible return, the buyer gets
@@ -540,17 +381,6 @@ do not contain raw media IDs. Use numbers from either array with
 array deletes that media. MCP accepts uploaded file references or inline base64
 files for add or replace operations; `media_ids` is not a public input. Read the updated listing for its current state and available actions.
 
-## Reauthorize
-
-For `reauthorize` / `replace-keys`:
-
-1. Detect the active client.
-2. Check whether `shopmine` is already configured with `codex mcp get shopmine` or `claude mcp get shopmine`.
-3. Run the agent auth code flow again with the requested scopes.
-4. Replace only the active client's `shopmine` MCP entry after the new code is
-   claimed successfully.
-5. Tell the user to restart the active client and call a read-only listing tool.
-
 ## Uninstall
 
 Codex:
@@ -584,7 +414,7 @@ Refunds may be processing or issued. Follow the order’s current refund guidanc
 Physical-good creation accepts optional `dimensions={x,y,z,weight?}` with positive x/y/z in inches and weight in ounces. Follow the returned next_actions on the same listing, then read its current state and correction guidance. Carrier quotes and labels need measurements and weight. Never invent measurements.
 ## Marketplace actions
 
-Every MCP and A2A operation requires an OBO bearer credential; neither interface has guest mode.
+Every MCP and A2A operation requires a valid OAuth access token; neither interface has guest mode.
 Use `search_shops(query=None, limit=10)` for recommended Shops, or provide a Shop name query.
 `search_listings(q=None, scope="shop", shop_share_id=None, ...)` browses the explicit or current Shop when `q` is omitted. Supply a meaningful item query to search that Shop, or use `scope="all_shops"` with a query to search across Shops. Blank queries are rejected. All-Shops scope requires a query, rejects `shop_share_id`, ignores the current Shop and leaves the session unchanged. A Shop search never broadens automatically. Default ordering is newest for browsing and relevance for a query.
 `send_message(message, order_id=None, support_id=None)` requires exactly one order_id or support_id. Messages must be nonblank and at most 500 characters. It returns the latest 50 messages and the confirmed new message. `get_messages()` returns the inbox with order_id or support_id handles; provide exactly one of those IDs to read the latest 50 messages in chronological order. No pagination is currently offered. Buyer messaging requires buy permission; seller messaging requires support permission.

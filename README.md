@@ -3,22 +3,31 @@
 This repository contains the optional `shopmine` skill for installing and
 configuring the ShopMine MCP tools in the active AI client.
 
-ShopMine does not require a skill. Agents can discover the public agent surface at
-`https://shopmine.ai/.well-known/agent.yml` or `https://shopmine.ai/llms.txt`, claim a
-human-created ShopMine agent auth code, and configure `https://mcp.shopmine.ai/mcp` directly.
-This skill is only a convenience shortcut for clients that support skills.
+ShopMine does not require a skill. Discover the public agent contract at
+`https://shopmine.ai/.well-known/agent.yml` or `https://shopmine.ai/llms.txt`, then
+connect to `https://mcp.shopmine.ai/mcp` using your client's OAuth support.
+This skill is an optional OAuth setup, refresh and reauthorization helper.
 
-ChatGPT and Claude can also connect through native MCP OAuth: add the MCP server
-URL in the app, then sign in to ShopMine and approve the needed buy, sell, and/or payout access.
-OAuth access supports client revocation. A2A also offers OAuth through its
-Agent Card and protected-resource discovery. Use S256
-PKCE and the advertised resource for authorization and token exchange; each
-token works only on the endpoint approved by the human. When a token response
-includes `refresh_token`, preserve it as an opaque value and use the discovered
-token endpoint with `grant_type=refresh_token`, the registered client, and the
-same resource. Save the replacement token response, including its refresh token.
-This skill's direct Bearer installation and both surfaces' agent-code flow
-remain available.
+MCP and A2A require OAuth with human sign-in and explicit consent. Add the MCP
+server URL in the client and approve only the needed `buy`, `sell`, `payout`,
+and/or `support` permissions. Buy covers purchases and buyer orders; sell covers
+Shops, listings and seller fulfillment; payout covers payout setup, account
+management/closure and eligible earnings payouts; support covers seller messaging.
+Omitted scopes default to `buy sell`; existing grants gain no new
+permissions automatically. A2A advertises OAuth in its Agent Card and
+protected-resource discovery. Use S256 PKCE and the advertised resource for
+authorization and token exchange; access works only on the approved resource.
+
+Preserve `refresh_token` as an opaque value and use the discovered token endpoint
+with `grant_type=refresh_token`, the registered client and the same resource.
+Securely save the replacement token response, including its refresh token.
+Clients with native OAuth support manage this themselves. Never paste credentials
+into chat or automate human consent. Owners can review and revoke access in
+ShopMine account settings.
+
+Reauthorizing the same named client for the same account replaces that client's
+previous connection. Different client names use separate agent slots, subject
+to the account's connection limit.
 
 Both MCP and A2A identify the connection as ShopMine Test or ShopMine Production.
 Keep credentials and listing/order IDs separate between environments. Invalid
@@ -58,13 +67,11 @@ After installing, open your AI coding agent and run:
 /shopmine
 ```
 
-The skill asks which buy, sell, and/or payout permissions your agent needs, asks you
-to create a six-digit code at `https://shopmine.ai/aiauth/create`, claims that code,
-then stores the returned 72-hour scoped credential in your MCP config:
-
-```text
-https://mcp.shopmine.ai/mcp
-```
+The skill guides the active client's OAuth connection to
+`https://mcp.shopmine.ai/mcp`, human approval of the permissions needed for the
+task, and verification through `profile_info()`. Use the client's supported
+connection controls. A saved connection alone does not prove authentication or
+that the intended account, environment and scopes are available.
 
 The public agent contract in `https://shopmine.ai/.well-known/agent.yml` and
 `https://shopmine.ai/llms.txt` is the source of truth. `SKILL.md` implements the
@@ -336,7 +343,7 @@ regardless of that flag.
 
 Account/profile lookups use `profile_info()`. It returns minimal account data
 for the authenticated caller: `username`, `email_verified`, and `token_scope`
-when the bearer credential is an OBO token.
+for the authenticated OAuth grant.
 Progress tools determine buyer or seller from the approved credential. Before
 carrier acceptance, the seller can use `cancel_order(order_id)` from `paid`,
 `label_generated`, or `label_uploaded`. ShopMine refunds the buyer, restores inventory, and handles any
@@ -381,15 +388,10 @@ information. It is not public or shown to buyers. Seller order reads report
 `pickup_evidence_attached=true` when a photo is attached. Action descriptors list
 this field in `optional_inputs`, separately from the required `delivery_pin`.
 
-The skill detects whether it is running under Codex or Claude Code and writes to the matching MCP config:
-
-- Codex: `~/.codex/config.toml`, with the bearer token referenced through `SHOPMINE_MCP_BEARER`
-- Claude Code: `~/.claude.json` / Claude MCP scopes, using `claude mcp add`
-
-To reauthorize later:
+To reauthorize later, use the client's OAuth connection controls or run:
 
 ```text
-/shopmine replace-keys
+/shopmine reauthorize
 ```
 
 ## Verify
@@ -420,7 +422,7 @@ Refunds may be processing or issued. Follow the order’s current refund guidanc
 Physical-good creation accepts optional `dimensions={x,y,z,weight?}` with positive x/y/z in inches and weight in ounces. Follow the returned next_actions on the same listing, then read its current state and correction guidance. Carrier quotes and labels need measurements and weight. Never invent measurements.
 ## Marketplace actions
 
-Every MCP and A2A operation requires an OBO bearer credential; neither interface has guest mode.
+Every MCP and A2A operation requires a valid OAuth access token; neither interface has guest mode.
 Use `search_shops(query=None, limit=10)` for recommended Shops, or provide a Shop name query.
 `search_listings(q=None, scope="shop", shop_share_id=None, ...)` browses the explicit or current Shop when `q` is omitted. Supply a meaningful item query to search that Shop, or use `scope="all_shops"` with a query to search across Shops. Blank queries are rejected. All-Shops scope requires a query, rejects `shop_share_id`, ignores the current Shop and leaves the session unchanged. A Shop search never broadens automatically. Default ordering is newest for browsing and relevance for a query.
 `send_message(message, order_id=None, support_id=None)` requires exactly one order_id or support_id. Messages must be nonblank and at most 500 characters. It returns the latest 50 messages and the confirmed new message. `get_messages()` returns the inbox with order_id or support_id handles; provide exactly one of those IDs to read the latest 50 messages in chronological order. No pagination is currently offered. Buyer messaging requires buy permission; seller messaging requires support permission.
