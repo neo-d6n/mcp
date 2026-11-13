@@ -20,11 +20,16 @@ descriptions and schemas. Do not keep a separate static catalog in this skill.
 
 ## Connect Through OAuth
 
-1. Identify the active AI client and use its documented remote MCP connection
-   controls to add https://mcp.shopmine.ai/mcp. If you cannot configure it,
-   explain how the human can add that exact server URL in the client's MCP or
-   connector settings and select OAuth. Do not invent client commands or
-   authorization URLs. A fetched guide alone does not create a connection.
+1. Identify the person's current app and platform from context; ask one concise
+   question only if unknown. Give 3–5 short numbered manual setup steps using
+   current verified official menu and button names. Use the connection guide's
+   official client links: name ShopMine, URL https://mcp.shopmine.ai/mcp, OAuth,
+   human sign-in and scope approval, then install, enable or select in chat.
+   ChatGPT web uses a plugin; Claude and Grok use connectors; ChatGPT desktop
+   and editors use MCP-server settings. If you cannot add the server from chat, say so briefly and still
+   give the manual steps. Use an official documented web or desktop path when
+   mobile setup controls are unavailable. A fetched guide alone does not
+   install or enable the connection.
 2. Request only the permissions needed for the task: `buy` for purchases and
    buyer orders; `sell` for Shops, listings and seller fulfillment; `payout` for
    payout setup, account management or closure and eligible earnings payouts;

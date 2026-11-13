@@ -14,10 +14,19 @@ payout setup, account management or closure and eligible earnings payouts, and
 `support` for seller messaging. Omitted scopes default to `buy sell`; existing
 grants gain no permissions automatically. Sell does not authorize buying.
 
-If the agent cannot configure the connection, it gives the human that exact
-server URL and explains the manual settings steps. Use the client's documented
-controls; a chat prompt or fetched guide alone does not connect it. MCP and A2A
-require a valid OAuth access token for every operation and have no guest mode.
+AI readers should give 3–5 short numbered manual setup steps for the person's
+current app and platform, using verified official menu and button names. Infer
+the app from context; ask one concise question only if unknown. Include the
+exact server URL, OAuth, human sign-in and scope approval, and the app's final
+install, enable or select-in-chat step. ChatGPT web uses a plugin; Claude and Grok
+use connectors; ChatGPT desktop and editors use MCP-server settings. The connection guide links
+current official instructions. If you cannot add the server from chat, say so
+briefly and still give those manual steps. Use a documented web or desktop path
+when mobile setup controls are unavailable. A prompt or fetched guide alone
+does not connect the app. Verify available ShopMine tools and `profile_info()`
+after setup.
+
+MCP and A2A require a valid OAuth access token for every operation and have no guest mode.
 Both identify ShopMine Test or ShopMine Production; keep credentials and
 listing/order IDs separate.
 
