@@ -23,14 +23,13 @@ descriptions and schemas. Do not keep a separate static catalog in this skill.
 1. Identify the person's current app and platform from context; ask one concise
    question only if unknown. Give 3–5 short numbered manual setup steps using
    current verified official menu and button names. Use the connection guide's
-   official client links: name ShopMine, URL https://mcp.shopmine.ai/mcp, OAuth,
-   human sign-in and scope approval, then install, enable or select in chat.
+   official client links: name ShopMine, URL https://mcp.shopmine.ai/mcp, then install, enable or select in chat. Offer guest public browsing where supported; use OAuth for account actions or clients requiring sign-in.
    ChatGPT web uses a plugin; Claude and Grok use connectors; ChatGPT desktop
    and editors use MCP-server settings. If you cannot add the server from chat, say so briefly and still
    give the manual steps. Use an official documented web or desktop path when
    mobile setup controls are unavailable. A fetched guide alone does not
    install or enable the connection.
-2. Request only the permissions needed for the task: `buy` for purchases and
+2. For guest browsing, initialize MCP, discover tools and verify a public Shop search. For account actions, request only the permissions needed for the task: `buy` for purchases and
    buyer orders; `sell` for Shops, listings and seller fulfillment; `payout` for
    payout setup, account management or closure and eligible earnings payouts;
    `support` for seller messaging. Omitted scopes default to `buy sell`;
@@ -45,8 +44,7 @@ descriptions and schemas. Do not keep a separate static catalog in this skill.
    account, environment and approved `token_scope`. A saved connection or an
    opened browser alone does not prove readiness.
 
-MCP and A2A require a valid OAuth access token for every operation; neither has
-guest mode. Both identify ShopMine Test or ShopMine Production. Keep credentials
+MCP and A2A allow guest public browsing; account actions require OAuth. A2A guest clients must retain and resend the server's guest cookie. A conversation ID alone is insufficient; use OAuth if cookie support is unavailable. Guest A2A usage is limited to four messages per minute, with conversations expiring three days after creation. After sign-in, use a new authenticated context or an explicitly requested authorized existing context; guest history does not transfer. If the guest cookie expires, discard it and send a new message without task/context IDs. Both identify ShopMine Test or ShopMine Production. Keep credentials
 and listing/order IDs separate between environments.
 For A2A, use the interface, protocol and OAuth requirements advertised by
 https://a2a.shopmine.ai/.well-known/agent-card.json in an A2A-capable client.
