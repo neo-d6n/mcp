@@ -29,6 +29,8 @@ MCP and A2A support guest public browsing. Account actions require OAuth. A2A gu
 Both identify ShopMine Test or ShopMine Production; keep credentials and
 listing/order IDs separate.
 
+Use the original OAuth connection to resume an A2A conversation or task. Token refresh preserves access. A different app or fresh consent starts a new history.
+
 Clients discover OAuth metadata, use S256 PKCE and the advertised resource for
 authorization and token exchange, and send access tokens only to the approved
 resource. Native OAuth clients manage token storage and refresh. Keep tokens
