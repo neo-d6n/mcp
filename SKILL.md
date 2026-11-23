@@ -29,12 +29,12 @@ descriptions and schemas. Do not keep a separate static catalog in this skill.
    give the manual steps. Use an official documented web or desktop path when
    mobile setup controls are unavailable. A fetched guide alone does not
    install or enable the connection.
-2. For guest browsing, initialize MCP, discover tools and verify a public Shop search. For account actions, request only the permissions needed for the task: `buy` for purchases and
-   buyer orders; `sell` for Shops, listings and seller fulfillment; `payout` for
-   payout setup, account management or closure and eligible earnings payouts;
-   `support` for seller messaging. Omitted scopes default to `buy sell`;
-   existing grants gain no permissions automatically. Sell does not authorize
-   buying. Let the human sign in and explicitly approve the requested scopes.
+2. For guest browsing, initialize MCP, discover tools and verify a public Shop
+   search. For purchases and buyer orders, let the human sign in with OAuth.
+   Leave optional permissions unchecked for shopping only. Request `sell` for
+   managing Shops, listings and fulfillment, `payout` for managing payouts and
+   withdrawing eligible earnings, or `support` for seller messaging as needed.
+   Let the human explicitly approve any optional permissions.
 3. Let the client complete OAuth with its registered callback, S256 PKCE and
    the advertised resource for authorization and token exchange. Send the
    access token only to its approved resource. Never ask the human to paste
@@ -74,9 +74,9 @@ access in ShopMine account settings.
 Use the current MCP tool descriptions, declared inputs and returned actions for
 the requested task. Follow displayed listing terms and charges. Every
 credit-card checkout requires the human to review and approve payment on
-ShopMine; saving a card is optional and does not approve future purchases.
-Never collect card, bank or identity-verification details in chat. Keep payment
-credentials and private label links private.
+ShopMine. Saving a card is optional. Each MPP purchase requires a payment
+credential for that purchase. Never collect card, bank or identity-verification
+details in chat. Keep payment credentials and private label links private.
 
 Preserve operation references, request IDs and unchanged inputs when checking
 or retrying an uncertain outcome. A checkout link, created order or pending

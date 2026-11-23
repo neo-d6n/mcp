@@ -7,12 +7,11 @@ is required. The public connection guide is https://shopmine.ai/llms.txt.
 ## Connect
 
 Add https://mcp.shopmine.ai/mcp through your AI client's supported remote MCP or
-connector settings. Browse public Shops and listings as a guest where your client supports it; use OAuth for account actions or clients requiring sign-in. The human signs in to ShopMine and
-explicitly approves only the permissions needed for the task: `buy` for purchases
-and buyer orders, `sell` for Shops, listings and seller fulfillment, `payout` for
-payout setup, account management or closure and eligible earnings payouts, and
-`support` for seller messaging. Omitted scopes default to `buy sell`; existing
-grants gain no permissions automatically. Sell does not authorize buying.
+connector settings. Browse public Shops and listings as a guest where your client
+supports it. Sign in with OAuth to shop and access buyer orders. Leave optional
+permissions unchecked for a shopping-only connection. Approve `sell` to manage
+Shops, listings and fulfillment, `payout` to manage payouts and withdraw eligible
+earnings, or `support` for seller messaging when the task requires it.
 
 AI readers should give 3–5 short numbered manual setup steps for the person's
 current app and platform, using verified official menu and button names. Infer
@@ -44,8 +43,9 @@ not prove readiness. For A2A, use an A2A-capable client and the current Agent Ca
 at https://a2a.shopmine.ai/.well-known/agent-card.json.
 
 Every credit-card checkout requires the human to review and approve payment on
-ShopMine. Saving a card is optional and does not approve future purchases.
-Never collect card, bank or identity-verification details in chat.
+ShopMine. Saving a card is optional. Each MPP purchase requires a payment
+credential for that purchase. Never collect card, bank or identity-verification
+details in chat.
 
 ## Optional skill installation
 
