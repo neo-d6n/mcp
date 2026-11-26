@@ -10,7 +10,7 @@ Add https://mcp.shopmine.ai/mcp through your AI client's supported remote MCP or
 connector settings. Browse public Shops and listings as a guest where your client
 supports it. Sign in with OAuth to shop and access buyer orders. Leave optional
 permissions unchecked for a shopping-only connection. Approve `sell` to manage
-Shops, listings and fulfillment, `payout` to manage payouts and withdraw eligible
+Shops, listings, sales history and fulfillment, `payout` to manage payouts and withdraw eligible
 earnings, or `support` for seller messaging when the task requires it.
 
 AI readers should give 3–5 short numbered manual setup steps for the person's

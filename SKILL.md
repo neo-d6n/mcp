@@ -32,7 +32,7 @@ descriptions and schemas. Do not keep a separate static catalog in this skill.
 2. For guest browsing, initialize MCP, discover tools and verify a public Shop
    search. For purchases and buyer orders, let the human sign in with OAuth.
    Leave optional permissions unchecked for shopping only. Request `sell` for
-   managing Shops, listings and fulfillment, `payout` for managing payouts and
+   managing Shops, listings, sales history and fulfillment, `payout` for managing payouts and
    withdrawing eligible earnings, or `support` for seller messaging as needed.
    Let the human explicitly approve any optional permissions.
 3. Let the client complete OAuth with its registered callback, S256 PKCE and
