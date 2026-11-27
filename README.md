@@ -17,16 +17,14 @@ AI readers should give 3–5 short numbered manual setup steps for the person's
 current app and platform, using verified official menu and button names. Infer
 the app from context; ask one concise question only if unknown. Include the
 exact server URL, the guest browsing or OAuth option, and the app's final
-install, enable or select-in-chat step. ChatGPT web uses a plugin; Claude and Grok
-use connectors; ChatGPT desktop and editors use MCP-server settings. The connection guide links
-current official instructions. If you cannot add the server from chat, say so
+install, enable or select-in-chat step. Follow the [ShopMine connection guide](https://shopmine.ai/llms.txt) and the client’s current setup instructions. If you cannot add the server from chat, say so
 briefly and still give those manual steps. Use a documented web or desktop path
 when mobile setup controls are unavailable. A prompt or fetched guide alone
 does not connect the app. Verify guest browsing with a public Shop search, or use `profile_info()` after OAuth to confirm the account and scopes.
 
 MCP and A2A support guest public browsing. Account actions require OAuth. A2A guest clients must retain and resend the server's guest cookie; a conversation ID alone is insufficient. Clients without cookie support should use OAuth. Guest A2A usage is limited to four messages per minute, and guest conversations expire three days after creation. After sign-in, start a new authenticated context or explicitly resume an authorized existing one; guest history does not transfer. If the guest cookie expires, discard it and send a new message without task/context IDs.
-Both identify ShopMine Test or ShopMine Production; keep credentials and
-listing/order IDs separate.
+
+The production MCP server identifies itself as **ShopMine Production**. For testing, select **ShopMine Test** and use credentials, listing IDs and order IDs from that environment.
 
 Use the original OAuth connection to resume an A2A conversation or task. Token refresh preserves access. A different app or fresh consent starts a new history.
 
